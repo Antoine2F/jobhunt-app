@@ -1,0 +1,15 @@
+{
+  "name": "@jobhunt/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./llm": "./src/llm.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
+    "yaml": "^2.8.1",
+    "zod": "^3.25.76"
+  }
+}
