@@ -40,7 +40,8 @@ function DirView({ path }: { path: string }) {
   const { data, error, loading } = useApi<{ entries: { path: string; type: string }[] }>(`/knowledge?path=${encodeURIComponent(path)}`);
   if (!data) return <Loading error={error} loading={loading} />;
   const entries = data.entries
-    .filter((e) => e.type === "dir" || e.path.endsWith(".md"))
+    .filter((e) => e.type === "dir" || (e.path.endsWith(".md") && !/(^|\/)(index|log)\.md$/.test(e.path)))
+    .filter((e) => !e.path.split("/").pop()!.startsWith("_"))
     .sort((a, b) => (a.type === b.type ? a.path.localeCompare(b.path) : a.type === "dir" ? -1 : 1));
   return (
     <>
