@@ -1,4 +1,4 @@
-import { keyOf, findOrCreateCompany } from "./ingest.js";
+import { fillCompanyInfo, keyOf, findOrCreateCompany, type CompanyInfo } from "./ingest.js";
 import {
   TABLE_NAMES,
   TABLES,
@@ -27,7 +27,9 @@ export interface OfferForReview {
   id: string;
   title: string;
   company: string | null;
+  company_id: string | null;
   location: string | null;
+  remote: string | null;
   contract: string | null;
   salary: string | null;
   url: string | null;
@@ -48,7 +50,9 @@ export async function listOffersForReview(store: Store, status?: string | null):
       id: o.id,
       title: o.title,
       company: (o.company_id && name.get(o.company_id)) || null,
+      company_id: o.company_id ?? null,
       location: o.location ?? null,
+      remote: o.remote ?? null,
       contract: o.contract ?? null,
       salary: o.salary ?? null,
       url: o.url ?? null,
@@ -63,6 +67,10 @@ export async function listOffersForReview(store: Store, status?: string | null):
 
 export interface OfferReview {
   score?: number | null;
+  /** Précisions trouvées sur la page de l'offre. */
+  location?: string | null;
+  remote?: string | null;
+  salary?: string | null;
   score_reason?: string | null;
   /** Seulement pour une offre encore « à valider » : la veille ne revient jamais sur une décision d'Antoine. */
   status?: "proposed" | "validated" | "rejected";
@@ -79,6 +87,7 @@ export async function reviewOffer(store: Store, id: string, review: OfferReview)
   if (review.score !== undefined) patch.score = review.score;
   if (review.score_reason !== undefined) patch.score_reason = review.score_reason;
   if (review.decision_note !== undefined) patch.decision_note = review.decision_note;
+  for (const k of ["location", "remote", "salary"] as const) if (review[k] !== undefined) patch[k] = review[k];
   if (review.status !== undefined && review.status !== offer.status) {
     if (!["proposed", "validated", "rejected"].includes(review.status)) {
       throw new ValidationError("status : proposed | validated | rejected");
@@ -90,6 +99,35 @@ export async function reviewOffer(store: Store, id: string, review: OfferReview)
   }
   if (!Object.keys(patch).length) return offer;
   return store.update("offers", id, patch as Partial<NewRow<"offers">>);
+}
+
+// --- Fiches entreprise ------------------------------------------------------
+
+export async function listCompaniesForReview(store: Store) {
+  const [companies, offers] = await Promise.all([store.list("companies"), store.list("offers")]);
+  return companies.map((c) => ({
+    id: c.id,
+    name: c.name,
+    description: c.description ?? null,
+    size: c.size ?? null,
+    sector: c.sector ?? null,
+    website: c.website ?? null,
+    funding: c.funding ?? null,
+    headquarters: c.headquarters ?? null,
+    offers: offers.filter((o) => o.company_id === c.id).length,
+  }));
+}
+
+/**
+ * Complète une fiche entreprise. Par défaut seuls les champs vides sont remplis ;
+ * `overwrite: true` remplace aussi les valeurs existantes (correction).
+ */
+export async function reviewCompany(store: Store, id: string, info: CompanyInfo & { overwrite?: boolean }): Promise<Company | null> {
+  const company = await store.get("companies", id);
+  if (!company) return null;
+  if (!info.overwrite) return fillCompanyInfo(store, company, info);
+  const { overwrite: _, ...fields } = info;
+  return store.update("companies", id, defined(fields) as Partial<NewRow<"companies">>);
 }
 
 // --- Reprise de l'historique -----------------------------------------------
@@ -116,6 +154,7 @@ export interface ImportProcess {
   source_detail?: string | null;
   /** Date de candidature (devient la date de réception de l'offre). */
   applied_at?: string | null;
+  company_info?: CompanyInfo | null;
   stage: ProcessStage;
   next_step?: string | null;
   next_step_date?: string | null;
@@ -278,7 +317,9 @@ async function upsertOffer(
 ): Promise<Offer> {
   const key = keyOf(p);
   const status: OfferStatus = FINISHED.includes(p.stage) ? "closed" : "applied";
-  const company = await findOrCreateCompany(store, p.company, companies);
+  const found = await findOrCreateCompany(store, p.company, companies);
+  const company = await fillCompanyInfo(store, found, p.company_info);
+  companies[companies.indexOf(found)] = company;
   const fields = defined({
     title: p.title.trim(),
     company_id: company.id,

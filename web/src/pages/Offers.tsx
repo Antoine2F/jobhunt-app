@@ -2,13 +2,15 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { Company, Offer, Process } from "@jobhunt/core";
 import { api, useApi } from "../api";
-import { fmtDate, OFFER_STATUS, SOURCE, STAGE } from "../labels";
+import { companyFacts, fmtDate, OFFER_STATUS, SOURCE, STAGE } from "../labels";
 import { formData, Loading, Score, useToast } from "../ui";
 
+// Le parcours d'une offre : à valider → validée (réseau d'abord, ou à postuler) → candidature.
 const TABS = {
   proposed: "À valider",
-  active: "En cours",
-  validated: "Validées",
+  network: "Réseau d'abord",
+  direct: "À postuler",
+  active: "Candidatures",
   all: "Toutes",
 } as const;
 type Tab = keyof typeof TABS;
@@ -22,10 +24,11 @@ export function OffersPage() {
   const processes = useApi<Process[]>("/processes");
   const toast = useToast();
 
-  const companyName = useMemo(() => {
-    const m = new Map((companies.data ?? []).map((c) => [c.id, c.name]));
-    return (id?: string | null) => (id ? (m.get(id) ?? "") : "");
+  const companyOf = useMemo(() => {
+    const m = new Map((companies.data ?? []).map((c) => [c.id, c]));
+    return (id?: string | null) => (id ? m.get(id) : undefined);
   }, [companies.data]);
+  const companyName = (id?: string | null) => companyOf(id)?.name ?? "";
   const processOf = useMemo(() => {
     const m = new Map((processes.data ?? []).map((p) => [p.offer_id, p]));
     return (id: string) => m.get(id);
@@ -34,7 +37,8 @@ export function OffersPage() {
   const list = (offers.data ?? [])
     .filter((o) => {
       if (tab === "proposed") return o.status === "proposed";
-      if (tab === "validated") return o.status === "validated";
+      if (tab === "network") return o.status === "validated" && o.approach === "network";
+      if (tab === "direct") return o.status === "validated" && o.approach !== "network";
       if (tab === "active") return o.status === "applied";
       return true;
     })
@@ -47,9 +51,9 @@ export function OffersPage() {
       tab === "proposed" ? (b.score ?? -1) - (a.score ?? -1) : (b.received_at ?? b.created_at).localeCompare(a.received_at ?? a.created_at),
     );
 
-  async function decide(o: Offer, decision: "validate" | "reject") {
-    await api(`/offers/${o.id}/decision`, { method: "POST", body: { decision } });
-    toast(decision === "validate" ? "Offre validée" : "Offre rejetée");
+  async function decide(o: Offer, decision: "validate" | "reject", approach?: "direct" | "network") {
+    await api(`/offers/${o.id}/decision`, { method: "POST", body: { decision, approach } });
+    toast(decision === "reject" ? "Offre rejetée" : approach === "network" ? "Validée : réseau d'abord" : "Validée : à postuler");
     offers.reload();
   }
 
@@ -74,6 +78,8 @@ export function OffersPage() {
         {offers.data && list.length === 0 && <p className="empty">Aucune offre ici.</p>}
         {list.map((o) => {
           const proc = processOf(o.id);
+          const company = companyOf(o.company_id);
+          const facts = companyFacts(company);
           return (
             <div key={o.id} className="card">
               <div className="spread">
@@ -82,12 +88,15 @@ export function OffersPage() {
                     <h3>{o.title}</h3>
                   </Link>
                   <div className="muted">
-                    {companyName(o.company_id) || "Entreprise inconnue"}
+                    {company?.name || "Entreprise inconnue"}
                     {o.location && ` · ${o.location}`}
+                    {o.remote && ` · ${o.remote}`}
                   </div>
+                  {facts && <div className="small muted">{facts}</div>}
                 </div>
                 <Score value={o.score} />
               </div>
+              {company?.description && <p className="small clamp" style={{ margin: "6px 0 0" }}>{company.description}</p>}
               {o.score_reason && <p className="small muted" style={{ margin: "6px 0 0" }}>{o.score_reason}</p>}
               <div className="row small" style={{ marginTop: 8 }}>
                 <span className="chip">{proc ? STAGE[proc.stage] : OFFER_STATUS[o.status]}</span>
@@ -96,10 +105,18 @@ export function OffersPage() {
                 {o.status === "proposed" && (
                   <span className="row" style={{ marginLeft: "auto" }}>
                     <button onClick={() => decide(o, "reject")}>Rejeter</button>
-                    <button className="primary" onClick={() => decide(o, "validate")}>
-                      Valider
+                    <button onClick={() => decide(o, "validate", "network")} title="Chercher d'abord quelqu'un qui peut me recommander">
+                      Réseau d'abord
+                    </button>
+                    <button className="primary" onClick={() => decide(o, "validate", "direct")}>
+                      Postuler
                     </button>
                   </span>
+                )}
+                {o.status === "validated" && (
+                  <Link to={`/offres/${o.id}`} style={{ marginLeft: "auto" }}>
+                    {o.approach === "network" ? "Voir les contacts →" : "Postuler →"}
+                  </Link>
                 )}
               </div>
             </div>

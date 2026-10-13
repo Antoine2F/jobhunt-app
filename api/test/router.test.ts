@@ -231,3 +231,47 @@ describe("router : revue des offres et reprise de l'historique", () => {
     expect((await ingest("GET", "/ingest/offers")).status).toBe(200);
   });
 });
+
+describe("router : choix de l'approche et fiches entreprise", () => {
+  const headers = { "x-ingest-key": "secret-key" };
+
+  it("valider, c'est choisir réseau d'abord ou candidature directe", async () => {
+    const store = setup();
+    const res = await handle(req("POST", "/offers/o-4/decision", { decision: "validate", approach: "network" }), store, env);
+    expect((res.body as { offer: { status: string; approach: string } }).offer).toMatchObject({ status: "validated", approach: "network" });
+    // Changer d'avis garde l'offre validée.
+    const res2 = await handle(req("POST", "/offers/o-4/decision", { decision: "validate", approach: "direct" }), store, env);
+    expect((res2.body as { offer: { approach: string } }).offer.approach).toBe("direct");
+    expect((await handle(req("POST", "/offers/o-4/decision", { decision: "validate", approach: "piston" }), store, env)).status).toBe(400);
+  });
+
+  it("la veille complète l'entreprise sans écraser ce qui est saisi", async () => {
+    const store = setup();
+    const call = (method: string, path: string, body: unknown = null) => handle(req(method, path, body, { user: null, headers }), store, env);
+    const info = { description: "Plateforme d'observabilité", size: "6 500 salariés", sector: "logiciel", funding: "Cotée (Nasdaq)" };
+    await call("POST", "/ingest", { source: "linkedin", offers: [{ title: "Senior PM", company: "Datadog", remote: "2 j/sem.", company_info: info }] });
+    const dd = (await store.list("companies")).find((c) => c.name === "Datadog")!;
+    expect(dd).toMatchObject(info);
+    expect((await store.list("offers")).find((o) => o.title === "Senior PM")!.remote).toBe("2 j/sem.");
+
+    // Champ déjà rempli : conservé ; champ vide : complété.
+    await call("POST", "/ingest", { source: "linkedin", offers: [{ title: "Senior PM", company: "Datadog", company_info: { size: "1", website: "https://datadoghq.com" } }] });
+    expect(await store.get("companies", dd.id)).toMatchObject({ size: "6 500 salariés", website: "https://datadoghq.com" });
+
+    // Routes dédiées : liste, complément, correction explicite.
+    const list = (await call("GET", "/ingest/companies")).body as { companies: { id: string; offers: number }[] };
+    expect(list.companies.find((c) => c.id === dd.id)!.offers).toBe(1);
+    await call("PATCH", `/ingest/companies/${dd.id}`, { size: "7 000 salariés" });
+    expect((await store.get("companies", dd.id))!.size).toBe("6 500 salariés");
+    await call("PATCH", `/ingest/companies/${dd.id}`, { size: "7 000 salariés", overwrite: true });
+    expect((await store.get("companies", dd.id))!.size).toBe("7 000 salariés");
+    expect((await call("PATCH", "/ingest/companies/inconnue", { size: "1" })).status).toBe(404);
+  });
+
+  it("propose des recherches LinkedIn par affinité", async () => {
+    const res = await handle(req("GET", "/offers/o-4/suggestions"), setup(), { ...env, NETWORK_AFFINITIES: "Polytechnique, Microsoft" });
+    const labels = (res.body as { linkedin_searches: { label: string }[] }).linkedin_searches.map((l) => l.label);
+    expect(labels).toHaveLength(3);
+    expect(labels[1]).toMatch(/^Polytechnique chez /);
+  });
+});

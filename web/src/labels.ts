@@ -6,6 +6,11 @@ export const OFFER_STATUS: Record<string, string> = {
   closed: "Close",
 };
 
+export const APPROACH: Record<string, string> = {
+  network: "Réseau d'abord",
+  direct: "Candidature directe",
+};
+
 export const STAGE: Record<string, string> = {
   applied: "Candidature envoyée",
   screening: "Préqualification",
@@ -46,6 +51,11 @@ export const SOURCE: Record<string, string> = {
   network: "Réseau",
   other: "Autre",
 };
+
+/** « Logiciel · 450 salariés · Série C » : ce qu'il faut savoir d'une entreprise en un coup d'œil. */
+export function companyFacts(c?: { sector?: string | null; size?: string | null; funding?: string | null } | null) {
+  return [c?.sector, c?.size, c?.funding].filter(Boolean).join(" · ");
+}
 
 export const STRENGTH: Record<string, string> = { "1": "Lien faible", "2": "Lien moyen", "3": "Proche" };
 

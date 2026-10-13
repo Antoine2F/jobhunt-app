@@ -412,3 +412,11 @@ dl.props dd {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* Texte limité à deux lignes (description d'entreprise dans les listes). */
+.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

@@ -15,6 +15,8 @@ export interface SuggestionResult {
   suggestions: ContactSuggestion[];
   /** Recherche LinkedIn préremplie (personnes de l'entreprise, 1er et 2e degré). */
   linkedin_search_url: string | null;
+  /** Autres recherches LinkedIn : anciens de mes écoles et employeurs dans l'entreprise. */
+  linkedin_searches: { label: string; url: string }[];
 }
 
 const splitList = (s?: string | null) =>
@@ -23,13 +25,21 @@ const splitList = (s?: string | null) =>
     .map((x) => x.trim())
     .filter(Boolean);
 
-export function linkedinPeopleSearch(companyName: string): string {
+export function linkedinPeopleSearch(companyName: string, affinity?: string): string {
   const params = new URLSearchParams({
-    keywords: companyName,
-    network: '["F","S"]',
+    keywords: affinity ? `${companyName} ${affinity}` : companyName,
+    // Relations directes et de 2e degré ; pour une affinité (même école,
+    // même ancien employeur), on élargit au 3e degré : le point commun suffit
+    // souvent pour un premier message.
+    network: affinity ? '["F","S","O"]' : '["F","S"]',
     origin: "FACETED_SEARCH",
   });
   return `https://www.linkedin.com/search/results/people/?${params}`;
+}
+
+/** Affinités (écoles, anciens employeurs) lues dans NETWORK_AFFINITIES, séparées par des virgules. */
+export function affinitiesFromEnv(env: NodeJS.ProcessEnv = process.env): string[] {
+  return splitList(env.NETWORK_AFFINITIES);
 }
 
 /**
@@ -45,9 +55,10 @@ export function suggestContacts(
   companies: Company[],
   people: Person[],
   intros: Introduction[],
+  affinities: string[] = [],
 ): SuggestionResult {
   const company = companies.find((c) => c.id === offer.company_id) ?? null;
-  if (!company) return { company: null, suggestions: [], linkedin_search_url: null };
+  if (!company) return { company: null, suggestions: [], linkedin_search_url: null, linkedin_searches: [] };
 
   const target = normalizeCompanyName(company.name);
   const sameCompany = (name?: string | null) => !!name && normalizeCompanyName(name) === target;
@@ -102,10 +113,16 @@ export function suggestContacts(
     company,
     suggestions: [...out.values()].sort((a, b) => b.score - a.score).slice(0, 10),
     linkedin_search_url: linkedinPeopleSearch(company.name),
+    linkedin_searches: [
+      { label: `Mes relations chez ${company.name}`, url: linkedinPeopleSearch(company.name) },
+      ...affinities
+        .filter((a) => normalizeCompanyName(a) !== normalizeCompanyName(company.name))
+        .map((a) => ({ label: `${a} chez ${company.name}`, url: linkedinPeopleSearch(company.name, a) })),
+    ],
   };
 }
 
-export async function suggestForOffer(store: Store, offerId: string): Promise<SuggestionResult | null> {
+export async function suggestForOffer(store: Store, offerId: string, affinities: string[] = []): Promise<SuggestionResult | null> {
   const offer = await store.get("offers", offerId);
   if (!offer) return null;
   const [companies, people, intros] = await Promise.all([
@@ -113,5 +130,5 @@ export async function suggestForOffer(store: Store, offerId: string): Promise<Su
     store.list("people"),
     store.list("introductions"),
   ]);
-  return suggestContacts(offer, companies, people, intros);
+  return suggestContacts(offer, companies, people, intros, affinities);
 }

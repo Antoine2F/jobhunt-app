@@ -65,6 +65,7 @@ Ce skill sert à l'initialisation, puis à chaque fois que je veux rattraper un 
       "source": "network",
       "source_detail": "Cooptation Samuel Savin",
       "applied_at": "2026-10-07T09:00:00Z",
+      "company_info": { "description": "Plateforme d'observabilité cloud", "size": "6 500 salariés", "sector": "logiciel" },
       "stage": "interviews",
       "next_step": "Entretien hiring manager",
       "next_step_date": "2026-10-20",
