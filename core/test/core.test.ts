@@ -10,7 +10,6 @@ import {
   validate,
   ValidationError,
 } from "../src/index.js";
-import { htmlToText } from "../src/llm.js";
 
 describe("offerKey", () => {
   it("unifie les URL LinkedIn quel que soit le suivi", () => {
@@ -105,14 +104,5 @@ describe("knowledge", () => {
     expect(c.meta.type).toBe("Skill Inventory");
     expect(c.meta.tags).toEqual(["data"]);
     expect(c.body.trim()).toBe("# Corps");
-  });
-});
-
-describe("htmlToText", () => {
-  it("garde les liens et retire le balisage", () => {
-    const t = htmlToText('<style>x{}</style><p>Poste <a href="https://x.test/1">Head of Data</a></p><br>Paris');
-    expect(t).toContain("Head of Data [https://x.test/1]");
-    expect(t).toContain("Paris");
-    expect(t).not.toContain("<");
   });
 });

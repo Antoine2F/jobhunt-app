@@ -16,23 +16,18 @@ Tu travailles dans **mon** navigateur, avec **ma** session LinkedIn déjà ouver
 
 ## Configuration
 
-Lis `~/.jobhunt.env` (ou demande-moi les valeurs si le fichier n'existe pas) :
-
-```
-APP_URL=https://<mon-appli>.azurestaticapps.net
-INGEST_KEY=<clé d'ingestion>
-KNOWLEDGE_DIR=~/jobhunt-knowledge   # clone local de la base de connaissance
-```
+Même configuration que le skill `veille-offres` : le dossier de travail est mon clone local de `jobhunt-knowledge`, qui contient `.jobhunt.env` (`APP_URL`, `INGEST_KEY`). Le profil se lit dans `profil/` de ce même dossier.
 
 ## Étapes
 
-1. **Lis mon profil** : `$KNOWLEDGE_DIR/profil/preferences.md`, `skills.md` et `cv.md`. C'est la référence pour noter les offres.
+1. **Lis mon profil** : `profil/preferences.md`, `skills.md` et `cv.md`. C'est la référence pour noter les offres.
 2. **Ouvre LinkedIn** > Emplois > « Mes alertes emploi » (ou les recherches sauvegardées), une alerte à la fois, triées par « Plus récentes ».
 3. Pour chaque offre de la liste (panneau de droite) relève : intitulé, entreprise, lieu, type de contrat et salaire s'ils sont affichés, URL (`https://www.linkedin.com/jobs/view/<id>/`), et 2 ou 3 phrases de description.
 4. **Note** chaque offre de 0 à 100 par rapport au profil, avec une ligne de justification (`score_reason`). Pénalise fortement ce qui figure dans « ce que je ne cherche pas ».
 5. **Envoie** le lot à l'appli (doublons ignorés automatiquement) :
 
 ```bash
+source .jobhunt.env
 curl -sS -X POST "$APP_URL/api/ingest" \
   -H "content-type: application/json" -H "x-ingest-key: $INGEST_KEY" \
   -d @/tmp/linkedin-offres.json

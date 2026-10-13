@@ -5,7 +5,6 @@
 # Variables attendues (ou demandées à l'exécution) :
 #   SQL_ADMIN_PASSWORD   mot de passe administrateur SQL (12+ caractères, majuscules, chiffres, symboles)
 #   ALLOWED_USERS        identifiant(s) GitHub autorisé(s) à se connecter, ex. "Antoine2F"
-#   ANTHROPIC_API_KEY    clé API Claude (console.anthropic.com)
 #   KNOWLEDGE_REPO       ex. "Antoine2F/jobhunt-knowledge"
 #   KNOWLEDGE_TOKEN      jeton GitHub à grain fin, lecture seule sur KNOWLEDGE_REPO
 #   BUDGET_EUR           alerte budget mensuelle (5 par défaut)
@@ -19,7 +18,6 @@ LOCATION="${LOCATION:-westeurope}"
 ask() { local v="$1"; if [ -z "${!v:-}" ]; then read -rsp "$v : " "$v"; echo; export "$v"; fi; }
 ask SQL_ADMIN_PASSWORD
 ask ALLOWED_USERS
-ask ANTHROPIC_API_KEY
 ask KNOWLEDGE_REPO
 ask KNOWLEDGE_TOKEN
 ask ALERT_EMAIL
@@ -52,7 +50,6 @@ az staticwebapp appsettings set -n "$SWA" -g "$RG" -o none --setting-names \
   "SQL_CONNECTION_STRING=$CS" \
   "ALLOWED_USERS=$ALLOWED_USERS" \
   "INGEST_KEY=$INGEST_KEY" \
-  "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" \
   "KNOWLEDGE_REPO=$KNOWLEDGE_REPO" \
   "KNOWLEDGE_TOKEN=$KNOWLEDGE_TOKEN"
 
@@ -70,12 +67,14 @@ cat <<EOF
 
 Terminé.
 
-  Appli :                  https://$HOST
-  Secrets GitHub à créer dans le dépôt jobhunt-app (Settings > Secrets and variables > Actions) :
-    AZURE_STATIC_WEB_APPS_API_TOKEN = $TOKEN
-    APP_URL                         = https://$HOST
-    INGEST_KEY                      = $INGEST_KEY
-    ANTHROPIC_API_KEY, GMAIL_USER, GMAIL_APP_PASSWORD, KNOWLEDGE_TOKEN (voir README)
+  Appli : https://$HOST
 
-Garde INGEST_KEY : le skill Claude « veille LinkedIn » en a besoin aussi.
+  1. Secret GitHub à créer dans le dépôt jobhunt-app (Settings > Secrets and variables > Actions) :
+       AZURE_STATIC_WEB_APPS_API_TOKEN = $TOKEN
+     puis relance le workflow « Déploiement Azure » (ou pousse un commit).
+
+  2. Fichier .jobhunt.env à créer à la racine de ton clone local de jobhunt-knowledge
+     (ignoré par git, lu par les tâches Claude Desktop) :
+       APP_URL=https://$HOST
+       INGEST_KEY=$INGEST_KEY
 EOF

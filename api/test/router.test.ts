@@ -81,3 +81,23 @@ describe("router", () => {
     expect(sugg.status).toBe(200);
   });
 });
+
+describe("router : ajout manuel et suivi de la veille", () => {
+  it("ajoute une offre validée sans appel à Claude", async () => {
+    const store = setup();
+    const res = await handle(req("POST", "/offers/manual", { title: "CDO", company: "Exemple Énergie", url: "https://x.test/1" }), store, env);
+    const body = res.body as { created: { status: string; company_id: string; source: string }[] };
+    expect(body.created[0]).toMatchObject({ status: "validated", company_id: "c-1", source: "manual" });
+    expect((await handle(req("POST", "/offers/manual", { company: "X" }), store, env)).status).toBe(400);
+  });
+
+  it("donne la date du dernier passage de la veille", async () => {
+    const store = setup();
+    const headers = { "x-ingest-key": "secret-key" };
+    const empty = await handle(req("GET", "/ingest/last", null, { user: null, headers }), store, env);
+    expect(empty.body).toEqual({ last_run_at: null, messages_processed: 0 });
+    await handle(req("POST", "/ingest", { source: "linkedin", message_id: "m-1", offers: [] }, { user: null, headers }), store, env);
+    const after = (await handle(req("GET", "/ingest/last", null, { user: null, headers }), store, env)).body as { last_run_at: string };
+    expect(after.last_run_at).toBeTruthy();
+  });
+});

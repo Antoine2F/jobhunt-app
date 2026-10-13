@@ -3,7 +3,6 @@ import {
   applyIngest,
   buildHome,
   knowledgeFromEnv,
-  loadProfileText,
   parseConcept,
   suggestForOffer,
   TABLE_NAMES,
@@ -13,7 +12,6 @@ import {
   type Store,
   type TableName,
 } from "@jobhunt/core";
-import { extractAndScore, htmlToText } from "@jobhunt/core/llm";
 
 export interface ApiRequest {
   method: string;
@@ -76,12 +74,6 @@ async function cascadeDelete(store: Store, table: TableName, id: string) {
   return store.remove(table, id);
 }
 
-async function fetchPageText(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 jobhunt-app", Accept: "text/html" } });
-  if (!res.ok) throw new ValidationError(`Page inaccessible (${res.status}) : colle plutôt le texte de l'offre`);
-  return htmlToText(await res.text()).slice(0, 60_000);
-}
-
 export async function handle(req: ApiRequest, store: Store, env = process.env): Promise<ApiResponse> {
   const parts = req.path.split("/").filter(Boolean);
   const [first, second, third] = parts;
@@ -95,6 +87,11 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
         const ids = (req.body as { ids?: unknown })?.ids;
         if (!Array.isArray(ids)) return err(400, "ids attendu");
         return ok({ ids: await unseenMessages(store, ids.map(String)) });
+      }
+      if (m === "GET" && second === "last") {
+        const msgs = await store.list("ingested_messages");
+        const last = msgs.map((x) => x.created_at).sort().pop() ?? null;
+        return ok({ last_run_at: last, messages_processed: msgs.length });
       }
       if (m === "POST" && !second) {
         const payload = req.body as IngestPayload;
@@ -124,15 +121,11 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
     }
 
     // --- Offres : actions métier
-    if (first === "offers" && second === "import" && m === "POST") {
-      const { url, text } = (req.body ?? {}) as { url?: string; text?: string };
-      if (!url && !text) return err(400, "url ou text attendu");
-      const content = text?.trim() ? text : await fetchPageText(url!);
-      const src = knowledgeFromEnv(env);
-      const profile = src ? await loadProfileText(src) : "";
-      const offers = await extractAndScore(content, profile, { hint: url ? `Offre ajoutée à la main depuis ${url}` : "Offre collée à la main" });
-      if (offers.length && url && !offers[0].url) offers[0].url = url;
-      const res = await applyIngest(store, { source: "manual", status: "validated", offers: offers.slice(0, 1) });
+    if (first === "offers" && second === "manual" && m === "POST") {
+      // Offre ajoutée à la main : validée d'office, sans notation automatique.
+      const o = (req.body ?? {}) as IngestPayload["offers"][number];
+      if (!o.title?.trim()) return err(400, "Intitulé obligatoire");
+      const res = await applyIngest(store, { source: "manual", status: "validated", offers: [o] });
       return ok({ created: res.created, duplicates: res.duplicates });
     }
 

@@ -17,18 +17,16 @@ La base de connaissance (CV, stories, compétences, préférences, préparations
 core/     logique métier partagée (schéma, déduplication, accueil, suggestions, Claude, base de connaissance)
 api/      API HTTP : Azure Functions (fonctions gérées par Static Web Apps) + serveur de dev
 web/      interface React (Vite), PWA
-ingest/   veille : lit les alertes Gmail (IMAP), extrait et note les offres avec Claude, les envoie à l'API
 db/       schéma SQL généré (npx tsx scripts/gen-schema.ts)
 infra/    Bicep + script de déploiement Azure
-skills/   skill Claude « veille LinkedIn » (computer use, à la demande)
+skills/   skills Claude Desktop : veille des alertes e-mail (tâche planifiée), veille LinkedIn (computer use)
 ```
 
 | Brique | Service | Coût attendu |
 |---|---|---|
 | Site + API | Azure Static Web Apps, offre Free | 0 € |
 | Base de données | Azure SQL Database serverless, offre gratuite (100 000 vCore-s et 32 Go / mois, pause auto) | 0 € |
-| Veille planifiée | GitHub Actions (≈ 3 × 1 min / jour) | 0 € (quota gratuit) |
-| Extraction et notation | API Claude, modèle Haiku | quelques centimes à 1-2 € / mois |
+| Veille, extraction et notation des offres | Tâche planifiée Claude Desktop (abonnement Pro) | 0 € de plus |
 
 Une alerte budget Azure à 5 €/mois est créée par le script de déploiement.
 
@@ -42,16 +40,14 @@ npm test                 # tests unitaires
 npm run typecheck
 ```
 
-Sans `SQL_CONNECTION_STRING`, l'API tourne en mémoire avec des données fictives. L'ajout d'offre par lien/texte demande `ANTHROPIC_API_KEY`.
+Sans `SQL_CONNECTION_STRING`, l'API tourne en mémoire avec des données fictives. L'appli n'appelle jamais l'API Claude : l'extraction, la notation et la préparation d'entretien passent par Claude Desktop, sur ton abonnement.
 
 ## Mise en production
 
 ### 1. Préparer les accès
 
-1. **Clé Claude** : https://console.anthropic.com > API Keys.
-2. **Gmail** : active la validation en deux étapes, puis crée un *mot de passe d'application* (https://myaccount.google.com/apppasswords). La veille lit Gmail en lecture seule.
-3. **Jeton GitHub (base de connaissance)** : https://github.com/settings/personal-access-tokens > *Fine-grained token*, accès au seul dépôt `jobhunt-knowledge`, permission *Contents : Read-only*.
-4. **Alertes** : dans LinkedIn, WTTJ et chez les cabinets, crée des alertes e-mail vers ton adresse Gmail. Les expéditeurs reconnus sont listés dans `ingest/sources.json` : ajoute-y tes cabinets.
+1. **Jeton GitHub (base de connaissance)** : https://github.com/settings/personal-access-tokens > *Fine-grained token*, accès au seul dépôt `jobhunt-knowledge`, permission *Contents : Read-only*. Sert à la page Profil de l'appli.
+2. **Alertes** : dans LinkedIn, WTTJ et chez les cabinets, crée des alertes e-mail vers ton adresse Gmail. Les expéditeurs surveillés sont listés dans `skills/veille-offres/SKILL.md` : ajoute-y tes cabinets.
 
 ### 2. Créer l'infrastructure Azure
 
@@ -68,27 +64,29 @@ ALERT_EMAIL=antoinedefontenay@yahoo.fr \
 
 Le script crée la Static Web App, la base SQL (offre gratuite), applique le schéma, configure l'appli et affiche les secrets à copier dans GitHub.
 
-### 3. Secrets GitHub (dépôt jobhunt-app > Settings > Secrets and variables > Actions)
+### 3. Secret GitHub
 
-| Secret | Valeur |
-|---|---|
-| `AZURE_STATIC_WEB_APPS_API_TOKEN` | affiché par `deploy.sh` |
-| `APP_URL` | `https://<nom>.azurestaticapps.net` |
-| `INGEST_KEY` | affiché par `deploy.sh` |
-| `ANTHROPIC_API_KEY` | clé Claude |
-| `GMAIL_USER` | ton adresse Gmail |
-| `GMAIL_APP_PASSWORD` | mot de passe d'application |
-| `KNOWLEDGE_TOKEN` | jeton GitHub lecture seule |
-
-Chaque push sur `main` déploie (`deploy.yml`). La veille tourne à 7 h, 12 h et 18 h du lundi au samedi (`ingest.yml`), et peut être lancée à la main (onglet Actions, option « dry run » pour tester sans enregistrer).
+Dans le dépôt jobhunt-app > *Settings > Secrets and variables > Actions*, crée `AZURE_STATIC_WEB_APPS_API_TOKEN` (valeur affichée par `deploy.sh`). Chaque push sur `main` déploie ensuite l'appli (`deploy.yml`) ; tant que ce secret est absent, le déploiement est simplement ignoré.
 
 ### 4. Connexion
 
 L'appli est protégée par la connexion GitHub de Static Web Apps, et l'API n'accepte que les comptes listés dans `ALLOWED_USERS`. Sur Android : ouvre l'URL dans Chrome, connecte-toi, puis menu > *Ajouter à l'écran d'accueil*.
 
-## Veille LinkedIn par computer use
+## Veille des offres avec Claude Desktop (abonnement Pro)
 
-LinkedIn interdit l'extraction automatisée : la source principale reste les alertes e-mail. Pour une passe complémentaire, sous ta supervision, depuis Claude Desktop : copie `skills/linkedin-veille` dans tes skills Claude, crée `~/.jobhunt.env` (voir le skill), puis demande « fais la veille LinkedIn ».
+Aucune clé API : la veille tourne comme **tâche planifiée de Claude Desktop**. Elle lit Gmail par le connecteur Gmail, extrait et note les offres, puis les envoie à l'appli.
+
+1. Clone `jobhunt-knowledge` sur ton ordinateur (c'est aussi ton coffre Obsidian) et crée à sa racine `.jobhunt.env` avec `APP_URL` et `INGEST_KEY` (affichés par `deploy.sh`).
+2. Dans Claude Desktop : active le connecteur **Gmail** et ajoute les skills du dossier `skills/`.
+3. Crée une **tâche planifiée** :
+   - dossier de travail : ton clone `jobhunt-knowledge` ;
+   - instruction : « Fais la veille des offres avec le skill veille-offres » ;
+   - fréquence : par exemple chaque jour ouvré à 8 h.
+4. Si le bac à sable de Claude Desktop bloque le réseau, autorise le domaine de l'appli (`*.azurestaticapps.net`) dans ses paramètres. Sinon les lots sont mis de côté dans `veille/` et renvoyés au passage suivant.
+
+Les tâches planifiées ne tournent que lorsque Claude Desktop est ouvert et l'ordinateur allumé. Un passage manqué est rattrapé au suivant : la veille reprend depuis la date du dernier passage.
+
+**LinkedIn en direct** : le skill `linkedin-veille` parcourt tes alertes LinkedIn dans ton navigateur (computer use, à la demande, sous ta supervision). LinkedIn interdit l'extraction automatisée : ne le planifie pas, lance-le toi-même de temps en temps.
 
 ## Évolution du schéma
 

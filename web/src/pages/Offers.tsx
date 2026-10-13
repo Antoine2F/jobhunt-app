@@ -130,16 +130,12 @@ function AddOffer({ onAdded }: { onAdded: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await api<{ created: Offer[]; duplicates: number }>("/offers/import", {
-        method: "POST",
-        body: { url: f.url, text: f.text },
-      });
+      const res = await api<{ created: Offer[]; duplicates: number }>("/offers/manual", { method: "POST", body: f });
       if (res.created[0]) {
-        toast("Offre ajoutée et notée");
+        toast("Offre ajoutée");
         onAdded();
         navigate(`/offres/${res.created[0].id}`);
-      } else if (res.duplicates) setError("Cette offre est déjà enregistrée.");
-      else setError("Aucune offre reconnue dans ce contenu.");
+      } else setError("Cette offre est déjà enregistrée.");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -150,17 +146,37 @@ function AddOffer({ onAdded }: { onAdded: () => void }) {
   return (
     <div className="card">
       <form className="form" onSubmit={submit}>
-        <label className="full">
+        <label>
+          Intitulé du poste
+          <input name="title" required />
+        </label>
+        <label>
+          Entreprise
+          <input name="company" />
+        </label>
+        <label>
+          Lieu
+          <input name="location" />
+        </label>
+        <label>
           Lien de l'offre
           <input name="url" type="url" placeholder="https://…" />
         </label>
+        <label>
+          Contrat
+          <input name="contract" placeholder="CDI, freelance…" />
+        </label>
+        <label>
+          Rémunération
+          <input name="salary" />
+        </label>
         <label className="full">
-          Ou colle le texte de l'offre (nécessaire pour LinkedIn, qui bloque la lecture automatique)
-          <textarea name="text" />
+          Description (facultatif)
+          <textarea name="description" />
         </label>
         <div className="row full">
           <button className="primary" disabled={busy}>
-            {busy ? "Analyse en cours…" : "Analyser et ajouter"}
+            {busy ? "Ajout…" : "Ajouter"}
           </button>
           <button type="button" onClick={() => setOpen(false)}>
             Annuler
