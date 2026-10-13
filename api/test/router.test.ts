@@ -101,3 +101,133 @@ describe("router : ajout manuel et suivi de la veille", () => {
     expect(after.last_run_at).toBeTruthy();
   });
 });
+
+describe("router : revue des offres et reprise de l'historique", () => {
+  const headers = { "x-ingest-key": "secret-key" };
+  const ingest = (method: string, path: string, body: unknown = null, query = "") =>
+    handle(req(method, path, body, { user: null, headers, query: new URLSearchParams(query) }), setup(), env);
+
+  it("liste et renote les offres, sans revenir sur une décision", async () => {
+    const store = setup();
+    const call = (method: string, path: string, body: unknown = null, query = "") =>
+      handle(req(method, path, body, { user: null, headers, query: new URLSearchParams(query) }), store, env);
+    expect((await handle(req("GET", "/ingest/offers", null, { user: null }), store, env)).status).toBe(401);
+
+    const { offers } = (await call("GET", "/ingest/offers", null, "status=proposed")).body as { offers: { id: string; status: string; company: string | null }[] };
+    expect(offers.length).toBeGreaterThan(0);
+    expect(offers.every((o) => o.status === "proposed")).toBe(true);
+
+    const id = offers[0].id;
+    const res = await call("PATCH", `/ingest/offers/${id}`, { score: 12, score_reason: "ESN", status: "rejected", decision_note: "ESN" });
+    expect((res.body as { offer: { score: number; status: string } }).offer).toMatchObject({ score: 12, status: "rejected" });
+
+    // Déjà rejetée : la note peut changer, pas le statut.
+    expect((await call("PATCH", `/ingest/offers/${id}`, { score: 40 })).status).toBe(200);
+    expect((await call("PATCH", `/ingest/offers/${id}`, { status: "validated" })).status).toBe(409);
+    expect((await call("PATCH", "/ingest/offers/inconnue", { score: 1 })).status).toBe(404);
+  });
+
+  const bundle = {
+    processes: [
+      {
+        company: "Datadog",
+        title: "Senior PM APM",
+        url: "https://careers.datadoghq.com/detail/123/?gh_src=abc",
+        stage: "interviews",
+        applied_at: "2026-10-07T09:00:00Z",
+        next_step: "Entretien HM",
+        next_step_date: "2026-10-20",
+        interviews: [
+          { scheduled_at: "2026-10-10T14:00:00Z", kind: "Recruteur", status: "done", outcome: "Positif" },
+          { scheduled_at: "2026-10-20T10:00:00Z", kind: "Hiring manager", status: "to_prepare" },
+        ],
+      },
+      { company: "Fintech Démo", title: "Head of Product", stage: "lost", notes: "Refus après case study" },
+    ],
+    people: [
+      {
+        name: "Samuel Savin",
+        company: "Datadog",
+        email: "samuel@example.test",
+        strength: 2,
+        meetings: [
+          {
+            status: "seen",
+            planned_at: "2026-10-07T08:00:00Z",
+            topic: "Opportunités Datadog",
+            offer: { company: "Datadog", title: "Senior PM APM", url: "https://careers.datadoghq.com/detail/123/" },
+          },
+        ],
+      },
+    ],
+  };
+
+  it("simule l'import sans rien écrire", async () => {
+    const store = setup();
+    const before = (await store.list("processes")).length;
+    const res = await handle(req("POST", "/ingest/import", { ...bundle, dry_run: true }, { user: null, headers }), store, env);
+
+    const body = res.body as { dry_run: boolean; counts: Record<string, Record<string, number>> };
+    expect(body.dry_run).toBe(true);
+    expect(body.counts.process.created).toBe(2);
+    expect(body.counts.interview.created).toBe(2);
+    expect(body.counts.meeting.created).toBe(1);
+    expect((await store.list("processes")).length).toBe(before);
+  });
+
+  it("importe processus, entretiens et réseau, de façon idempotente", async () => {
+    const store = setup();
+    const call = (body: unknown) => handle(req("POST", "/ingest/import", body, { user: null, headers }), store, env);
+    const first = (await call(bundle)).body as { counts: Record<string, Record<string, number>> };
+    expect(first.counts.offer.created).toBe(2);
+    expect(first.counts.person.created).toBe(1);
+
+    const offers = await store.list("offers");
+    const dd = offers.find((o) => o.title === "Senior PM APM")!;
+    expect(dd.status).toBe("applied");
+    expect(offers.find((o) => o.title === "Head of Product")!.status).toBe("closed");
+    const proc = (await store.list("processes")).find((p) => p.offer_id === dd.id)!;
+    expect(proc).toMatchObject({ stage: "interviews", next_step_date: "2026-10-20" });
+    expect((await store.list("interviews")).filter((i) => i.process_id === proc.id)).toHaveLength(2);
+    expect((await store.list("meetings")).find((m) => m.topic === "Opportunités Datadog")!.offer_id).toBe(dd.id);
+    // L'entreprise existante est réutilisée.
+    expect((await store.list("companies")).filter((c) => c.name.startsWith("Fintech"))).toHaveLength(1);
+
+    const again = (await call(bundle)).body as { counts: Record<string, Record<string, number>> };
+    for (const kind of Object.values(again.counts)) expect(kind.created + kind.updated).toBe(0);
+
+    // Mise à jour : le recruteur est passé, l'entretien HM a eu lieu.
+    const next = structuredClone(bundle);
+    next.processes[0].stage = "final";
+    next.processes[0].interviews![1].status = "done";
+    const upd = (await call(next)).body as { counts: Record<string, Record<string, number>> };
+    expect(upd.counts.process.updated).toBe(1);
+    expect(upd.counts.interview).toMatchObject({ updated: 1, unchanged: 1, created: 0 });
+  });
+
+  it("reprend une offre déjà remontée par la veille au lieu de la dupliquer", async () => {
+    const store = setup();
+    const call = (path: string, body: unknown) => handle(req("POST", path, body, { user: null, headers }), store, env);
+    await call("/ingest", { source: "linkedin", offers: [{ title: "Senior PM APM", company: "Datadog", url: "https://www.linkedin.com/jobs/view/4300000001" }] });
+    const before = (await store.list("offers")).length;
+    await call("/ingest/import", { processes: [{ company: "Datadog", title: "Senior PM APM", url: "https://careers.datadoghq.com/detail/123/", stage: "screening" }] });
+    const offers = await store.list("offers");
+    expect(offers).toHaveLength(before);
+    expect(offers.find((o) => o.title === "Senior PM APM")!.status).toBe("applied");
+  });
+
+  it("refuse un lot invalide sans rien écrire", async () => {
+    const store = setup();
+    const before = (await store.list("offers")).length;
+    const bad = { processes: [bundle.processes[0], { company: "X", title: "PM", stage: "inconnu" }] };
+    const res = await handle(req("POST", "/ingest/import", bad, { user: null, headers }), store, env);
+    expect(res.status).toBe(400);
+    expect((res.body as { error: string }).error).toMatch(/processes\[1\] \(X — PM\)/);
+    expect((await store.list("offers")).length).toBe(before);
+  });
+
+  it("la route d'import exige la clé", async () => {
+    expect((await handle(req("POST", "/ingest/import", bundle, { user: null }), setup(), env)).status).toBe(401);
+    expect((await ingest("GET", "/ingest/offers")).status).toBe(200);
+  });
+});

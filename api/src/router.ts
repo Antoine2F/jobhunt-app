@@ -2,13 +2,19 @@ import { timingSafeEqual } from "node:crypto";
 import {
   applyIngest,
   buildHome,
+  ConflictError,
+  importHistory,
   knowledgeFromEnv,
+  listOffersForReview,
   parseConcept,
+  reviewOffer,
   suggestForOffer,
   TABLE_NAMES,
   unseenMessages,
   ValidationError,
+  type ImportBundle,
   type IngestPayload,
+  type OfferReview,
   type Store,
   type TableName,
 } from "@jobhunt/core";
@@ -80,7 +86,7 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
   const m = req.method.toUpperCase();
 
   try {
-    // --- Ingestion (GitHub Actions, skill Claude) : protégée par clé, pas par login.
+    // --- Ingestion (skills Claude Desktop) : protégée par clé, pas par login.
     if (first === "ingest") {
       if (!hasIngestKey(req, env)) return err(401, "Clé d'ingestion invalide");
       if (m === "POST" && second === "unseen") {
@@ -92,6 +98,20 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
         const msgs = await store.list("ingested_messages");
         const last = msgs.map((x) => x.created_at).sort().pop() ?? null;
         return ok({ last_run_at: last, messages_processed: msgs.length });
+      }
+      // Revue des offres déjà remontées : relecture et nouvelle notation.
+      if (second === "offers" && !third && m === "GET") {
+        return ok({ offers: await listOffersForReview(store, req.query.get("status")) });
+      }
+      if (second === "offers" && third && m === "PATCH") {
+        const offer = await reviewOffer(store, third, (req.body ?? {}) as OfferReview);
+        return offer ? ok({ offer }) : err(404, "Offre introuvable");
+      }
+      // Reprise de l'historique : processus, entretiens, réseau (idempotent).
+      if (second === "import" && m === "POST") {
+        const bundle = (req.body ?? {}) as ImportBundle & { dry_run?: boolean };
+        const dryRun = bundle.dry_run === true || req.query.get("dry_run") === "1";
+        return ok(await importHistory(store, bundle, { dryRun }));
       }
       if (m === "POST" && !second) {
         const payload = req.body as IngestPayload;
@@ -197,6 +217,7 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
     return err(404, "Route inconnue");
   } catch (e) {
     if (e instanceof ValidationError) return err(400, e.message);
+    if (e instanceof ConflictError) return err(409, e.message);
     console.error(e);
     return err(500, e instanceof Error ? e.message : "Erreur interne");
   }
