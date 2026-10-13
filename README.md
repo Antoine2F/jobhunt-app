@@ -90,7 +90,7 @@ Les tâches planifiées ne tournent que lorsque Claude Desktop est ouvert et l'o
 
 **Re-noter les offres** : après une mise à jour du profil, dis « renote les offres » au skill `veille-offres`. Il relit les offres encore à valider dans l'appli (`GET /api/ingest/offers`), les renote (`PATCH /api/ingest/offers/<id>`) et te propose d'écarter celles qui violent un point non négociable. Il ne change jamais le statut d'une offre que tu as déjà traitée.
 
-**Reprendre l'historique** : le skill `reprise-historique` reconstitue tes processus en cours ou terminés, tes entretiens et ton réseau à partir de Gmail, Google Agenda et de tes notes, te les montre, simule l'import puis l'envoie (`POST /api/ingest/import`, `?dry_run=1` pour simuler). L'import est idempotent : relance-le pour rattraper une saisie en retard.
+**Reprendre l'historique** : le skill `reprise-historique` reconstitue tes processus en cours ou terminés, tes entretiens et ton réseau à partir de Gmail, Google Agenda, de ta page Notion « Recherche Boulot », de ton classeur de suivi réseau (copie locale `veille/suivi-reseau.xlsx`, lien OneDrive dans `RESEAU_CLASSEUR_URL` de `.jobhunt.env`) et de tes notes, te les montre, simule l'import puis l'envoie (`POST /api/ingest/import`, `?dry_run=1` pour simuler). L'import est idempotent : relance-le pour rattraper une saisie en retard.
 
 ## Évolution du schéma
 
