@@ -58,7 +58,7 @@ Ajoute ici les cabinets dont je reçois les alertes.
    - `title`, `company`, `location`, `contract`, `salary` (null si absent) ;
    - `url` : lien direct vers l'offre (tu peux retirer les paramètres de suivi) ;
    - `description` : 2 ou 3 phrases factuelles, d'après l'e-mail uniquement ;
-   - `score` de 0 à 100 d'adéquation avec mon profil ; pénalise fortement ce qui est dans « Je ne recherche pas » ou « Je n'aime pas » ;
+   - `score` de 0 à 100 d'adéquation avec mon profil ; pénalise fortement ce qui est dans « Je ne recherche pas » ou « Je n'aime pas ». Une offre qui viole un « Point non négociable » (ex. ESN, salaire publié sous le minimum, hors de la zone géographique) ne dépasse pas 20 ;
    - `score_reason` : une ligne qui justifie le score.
    N'invente aucune offre ni aucune information. Ignore publicités, articles et liens de navigation.
 
@@ -80,6 +80,24 @@ Ajoute ici les cabinets dont je reçois les alertes.
    Envoie aussi les e-mails sans offre (`"offers": []`) pour qu'ils ne soient pas relus.
 
 7. **Résume** en quelques lignes : e-mails lus, offres créées et doublons (réponses `{"created": n, "duplicates": m}`), les 3 meilleures offres avec score et lien `$APP_URL/offres`.
+
+## Re-noter les offres déjà remontées
+
+Quand je dis « renote les offres » (par exemple après une mise à jour de mon profil), ne relis pas Gmail : repars des offres déjà dans l'appli.
+
+1. Relis mon profil (étape 1 ci-dessus).
+2. Récupère les offres encore à valider :
+   ```bash
+   curl -sS "$APP_URL/api/ingest/offers?status=proposed" -H "x-ingest-key: $INGEST_KEY"
+   ```
+   → `{"offers": [{"id", "title", "company", "location", "salary", "description", "score", "score_reason", …}]}`
+3. Pour chaque offre, recalcule `score` et `score_reason` avec les mêmes règles que l'étape 5, puis envoie-les :
+   ```bash
+   curl -sS -X PATCH "$APP_URL/api/ingest/offers/<id>" -H "content-type: application/json" \
+     -H "x-ingest-key: $INGEST_KEY" -d '{"score": 15, "score_reason": "ESN : point non négociable"}'
+   ```
+4. **Écarter des offres** : présente-moi d'abord la liste des offres qui violent un point non négociable, groupées par motif. Seulement après mon accord, envoie pour chacune `{"status": "rejected", "decision_note": "<motif>"}` sur la même route. Tu ne peux changer le statut que d'une offre encore « à valider » (sinon réponse 409) : mes décisions ne sont jamais écrasées.
+5. Résume : offres renotées, offres écartées, les 5 meilleures avec leur nouveau score.
 
 ## Si l'appli est injoignable
 

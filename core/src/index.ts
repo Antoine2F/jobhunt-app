@@ -6,3 +6,4 @@ export * from "./home.js";
 export * from "./suggest.js";
 export * from "./knowledge.js";
 export * from "./seed.js";
+export * from "./history.js";

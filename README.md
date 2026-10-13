@@ -19,7 +19,7 @@ api/      API HTTP : Azure Functions (fonctions gérées par Static Web Apps) + 
 web/      interface React (Vite), PWA
 db/       schéma SQL généré (npx tsx scripts/gen-schema.ts)
 infra/    Bicep + script de déploiement Azure
-skills/   skills Claude Desktop : veille des alertes e-mail (tâche planifiée), veille LinkedIn (computer use)
+skills/   skills Claude Desktop : veille des alertes e-mail (tâche planifiée), veille LinkedIn (computer use), reprise de l'historique
 ```
 
 | Brique | Service | Coût attendu |
@@ -87,6 +87,10 @@ Aucune clé API : la veille tourne comme **tâche planifiée de Claude Desktop**
 Les tâches planifiées ne tournent que lorsque Claude Desktop est ouvert et l'ordinateur allumé. Un passage manqué est rattrapé au suivant : la veille reprend depuis la date du dernier passage.
 
 **LinkedIn en direct** : le skill `linkedin-veille` parcourt tes alertes LinkedIn dans ton navigateur (computer use, à la demande, sous ta supervision). LinkedIn interdit l'extraction automatisée : ne le planifie pas, lance-le toi-même de temps en temps.
+
+**Re-noter les offres** : après une mise à jour du profil, dis « renote les offres » au skill `veille-offres`. Il relit les offres encore à valider dans l'appli (`GET /api/ingest/offers`), les renote (`PATCH /api/ingest/offers/<id>`) et te propose d'écarter celles qui violent un point non négociable. Il ne change jamais le statut d'une offre que tu as déjà traitée.
+
+**Reprendre l'historique** : le skill `reprise-historique` reconstitue tes processus en cours ou terminés, tes entretiens et ton réseau à partir de Gmail, Google Agenda et de tes notes, te les montre, simule l'import puis l'envoie (`POST /api/ingest/import`, `?dry_run=1` pour simuler). L'import est idempotent : relance-le pour rattraper une saisie en retard.
 
 ## Évolution du schéma
 
