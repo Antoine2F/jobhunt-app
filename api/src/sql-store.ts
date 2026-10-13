@@ -40,11 +40,9 @@ function fromDb(row: Record<string, unknown>, table: TableName): Record<string, 
 }
 
 export class SqlStore implements Store {
-  private pool: Promise<sql.ConnectionPool>;
+  private pool: Promise<sql.ConnectionPool> | null = null;
 
-  constructor(connectionString: string) {
-    this.pool = this.connect(connectionString);
-  }
+  constructor(private connectionString: string) {}
 
   // La base serverless gratuite se met en pause : la première connexion
   // peut échouer pendant la reprise (~1 min). On réessaie.
@@ -59,6 +57,12 @@ export class SqlStore implements Store {
   }
 
   private async request() {
+    // Si la reprise a échoué (base encore en pause), on ne garde pas l'échec :
+    // la requête suivante retente une connexion au lieu d'échouer pour toujours.
+    this.pool ??= this.connect(this.connectionString).catch((e) => {
+      this.pool = null;
+      throw e;
+    });
     return (await this.pool).request();
   }
 

@@ -43,6 +43,7 @@ Ajoute ici les cabinets dont je reçois les alertes.
    curl -sS "$APP_URL/api/ingest/last" -H "x-ingest-key: $INGEST_KEY"
    ```
    → `{"last_run_at": "...", ...}`. S'il est `null`, prends les 3 derniers jours.
+   C'est souvent le premier appel du passage : la base gratuite, en pause, met environ une minute à redémarrer et la réponse peut être une erreur (500, 502, 504 ou délai dépassé). Attends 60 secondes et réessaie, jusqu'à 2 fois. Si ça échoue encore, prends les 7 derniers jours : l'étape suivante écarte de toute façon les e-mails déjà traités.
 
 3. **Cherche les e-mails** pour chaque expéditeur du tableau, depuis cette date (`after:AAAA/MM/JJ`). Maximum 40 e-mails par passage. Note pour chacun son identifiant de message.
 
