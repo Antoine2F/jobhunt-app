@@ -1,17 +1,21 @@
 import { timingSafeEqual } from "node:crypto";
 import {
+  affinitiesFromEnv,
   applyIngest,
   buildHome,
   ConflictError,
   importHistory,
   knowledgeFromEnv,
+  listCompaniesForReview,
   listOffersForReview,
   parseConcept,
+  reviewCompany,
   reviewOffer,
   suggestForOffer,
   TABLE_NAMES,
   unseenMessages,
   ValidationError,
+  type CompanyInfo,
   type ImportBundle,
   type IngestPayload,
   type OfferReview,
@@ -107,6 +111,14 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
         const offer = await reviewOffer(store, third, (req.body ?? {}) as OfferReview);
         return offer ? ok({ offer }) : err(404, "Offre introuvable");
       }
+      // Fiches entreprise : activité, effectif, financement… pour décider.
+      if (second === "companies" && !third && m === "GET") {
+        return ok({ companies: await listCompaniesForReview(store) });
+      }
+      if (second === "companies" && third && m === "PATCH") {
+        const company = await reviewCompany(store, third, (req.body ?? {}) as CompanyInfo & { overwrite?: boolean });
+        return company ? ok({ company }) : err(404, "Entreprise introuvable");
+      }
       // Reprise de l'historique : processus, entretiens, réseau (idempotent).
       if (second === "import" && m === "POST") {
         const bundle = (req.body ?? {}) as ImportBundle & { dry_run?: boolean };
@@ -150,14 +162,19 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
     }
 
     if (first === "offers" && second && third === "decision" && m === "POST") {
-      const { decision, note } = (req.body ?? {}) as { decision?: string; note?: string };
+      const { decision, note, approach } = (req.body ?? {}) as { decision?: string; note?: string; approach?: string };
       const offer = await store.get("offers", second);
       if (!offer) return err(404, "Offre introuvable");
       const status = ({ validate: "validated", reject: "rejected", apply: "applied", close: "closed" } as const)[
         decision as "validate" | "reject" | "apply" | "close"
       ];
       if (!status) return err(400, "decision : validate | reject | apply | close");
-      const updated = await store.update("offers", offer.id, { status, decision_note: note ?? offer.decision_note ?? null });
+      // Valider, c'est aussi choisir comment candidater : tout de suite, ou par le réseau d'abord.
+      const updated = await store.update("offers", offer.id, {
+        status,
+        decision_note: note ?? offer.decision_note ?? null,
+        ...(approach !== undefined ? { approach: approach as "direct" | "network" } : {}),
+      });
       let process = null;
       if (status === "applied") {
         process = (await store.list("processes")).find((p) => p.offer_id === offer.id) ?? null;
@@ -167,7 +184,7 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
     }
 
     if (first === "offers" && second && third === "suggestions" && m === "GET") {
-      const res = await suggestForOffer(store, second);
+      const res = await suggestForOffer(store, second, affinitiesFromEnv(env));
       return res ? ok(res) : err(404, "Offre introuvable");
     }
 

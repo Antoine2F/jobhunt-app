@@ -1,6 +1,7 @@
 import sql from "mssql";
 import {
   newRowMeta,
+  schemaBatches,
   TABLES,
   validate,
   type Column,
@@ -56,13 +57,22 @@ export class SqlStore implements Store {
     }
   }
 
+  // Ajoute les tables et colonnes manquantes (script idempotent) : une
+  // colonne ajoutée dans le code existe en base dès le déploiement suivant.
+  private async ensureSchema(pool: sql.ConnectionPool) {
+    for (const batch of schemaBatches()) await pool.request().batch(batch);
+    return pool;
+  }
+
   private async request() {
     // Si la reprise a échoué (base encore en pause), on ne garde pas l'échec :
     // la requête suivante retente une connexion au lieu d'échouer pour toujours.
-    this.pool ??= this.connect(this.connectionString).catch((e) => {
-      this.pool = null;
-      throw e;
-    });
+    this.pool ??= this.connect(this.connectionString)
+      .then((pool) => this.ensureSchema(pool))
+      .catch((e) => {
+        this.pool = null;
+        throw e;
+      });
     return (await this.pool).request();
   }
 

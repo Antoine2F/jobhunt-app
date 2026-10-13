@@ -14,7 +14,7 @@ const meta = (id: string) => ({ id, created_at: iso(-20), updated_at: iso(-1) })
 
 export function seedDemo(store: MemoryStore) {
   store.load("companies", [
-    { ...meta("c-1"), name: "Exemple Énergie", sector: "énergie", size: "5000+", website: "https://exemple-energie.test" },
+    { ...meta("c-1"), name: "Exemple Énergie", sector: "énergie", size: "5000+", website: "https://exemple-energie.test", description: "Énergéticien européen fictif, programme data et IA groupe lancé en 2025.", funding: "Coté", headquarters: "La Défense" },
     { ...meta("c-2"), name: "Fintech Démo", sector: "finance", size: "200-500" },
     { ...meta("c-3"), name: "Conseil Fictif", sector: "conseil", size: "1000+" },
   ]);

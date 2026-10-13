@@ -72,6 +72,15 @@ Dans le dépôt jobhunt-app > *Settings > Secrets and variables > Actions*, cré
 
 L'appli est protégée par la connexion GitHub de Static Web Apps, et l'API n'accepte que les comptes listés dans `ALLOWED_USERS`. Sur Android : ouvre l'URL dans Chrome, connecte-toi, puis menu > *Ajouter à l'écran d'accueil*.
 
+## Parcours d'une offre
+
+1. **À valider** : remontée par la veille, notée sur 100, avec ce que fait l'entreprise, son effectif, son financement, le lieu et le télétravail. Tu la **rejettes**, ou tu la valides en choisissant comment y aller.
+2. **Réseau d'abord** : tu cherches quelqu'un qui peut te recommander. La page de l'offre met en avant les contacts de ton réseau liés à l'entreprise (y travaillent, y ont travaillé, peuvent te présenter) et des recherches LinkedIn préremplies. Un contact retenu devient une rencontre « à voir » liée à l'offre.
+   **À postuler** : candidature directe, le lien de l'annonce est en premier.
+3. **Candidature** : « J'ai candidaté » crée le processus (étapes, entretiens, prochaine action).
+
+Recherches LinkedIn par affinité : renseigne `NETWORK_AFFINITIES` dans les paramètres de la Static Web App (écoles et anciens employeurs séparés par des virgules, ex. `Polytechnique,Télécom Paris,Microsoft`) ; chaque offre propose alors « Polytechnique chez <entreprise> », etc.
+
 ## Veille des offres avec Claude Desktop (abonnement Pro)
 
 Aucune clé API : la veille tourne comme **tâche planifiée de Claude Desktop**. Elle lit Gmail par le connecteur Gmail, extrait et note les offres, puis les envoie à l'appli.
@@ -94,7 +103,7 @@ Les tâches planifiées ne tournent que lorsque Claude Desktop est ouvert et l'o
 
 ## Évolution du schéma
 
-Le schéma est défini dans `core/src/schema.ts`. Après une modification :
+Le schéma est défini dans `core/src/schema.ts`. L'API applique elle-même le script idempotent à sa première connexion à la base : une colonne ajoutée dans le code existe en production dès le déploiement suivant. Pour garder `db/schema.sql` à jour (ou l'appliquer à la main) :
 
 ```bash
 npx tsx scripts/gen-schema.ts                         # régénère db/schema.sql (idempotent)

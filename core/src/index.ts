@@ -7,3 +7,4 @@ export * from "./suggest.js";
 export * from "./knowledge.js";
 export * from "./seed.js";
 export * from "./history.js";
+export * from "./sql-schema.js";

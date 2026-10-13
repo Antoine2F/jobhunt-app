@@ -11,8 +11,36 @@ export interface IncomingOffer {
   salary?: string | null;
   url?: string | null;
   description?: string | null;
+  /** Politique de télétravail, ex. « 2 j/sem. ». */
+  remote?: string | null;
   score?: number | null;
   score_reason?: string | null;
+  /** Ce que la veille a appris de l'entreprise ; ne complète que les champs encore vides. */
+  company_info?: CompanyInfo | null;
+}
+
+/** Infos d'entreprise utiles pour décider : activité, effectif, secteur, financement, siège. */
+export interface CompanyInfo {
+  description?: string | null;
+  size?: string | null;
+  sector?: string | null;
+  website?: string | null;
+  funding?: string | null;
+  headquarters?: string | null;
+}
+
+const COMPANY_INFO_FIELDS = ["description", "size", "sector", "website", "funding", "headquarters"] as const;
+
+/** Complète les champs vides d'une entreprise sans écraser ce qui a été saisi. */
+export async function fillCompanyInfo(store: Store, company: Company, info: CompanyInfo | null | undefined): Promise<Company> {
+  if (!info) return company;
+  const patch: Record<string, string> = {};
+  for (const k of COMPANY_INFO_FIELDS) {
+    const v = info[k]?.trim();
+    if (v && !company[k]) patch[k] = v;
+  }
+  if (!Object.keys(patch).length) return company;
+  return (await store.update("companies", company.id, patch)) ?? company;
 }
 
 export interface IngestPayload {
@@ -57,15 +85,24 @@ export async function applyIngest(store: Store, payload: IngestPayload): Promise
     const key = keyOf(o);
     if (keys.has(key)) {
       duplicates++;
+      // Même en doublon, l'entreprise peut gagner des informations.
+      if (o.company?.trim() && o.company_info) {
+        await fillCompanyInfo(store, await findOrCreateCompany(store, o.company, companies), o.company_info);
+      }
       continue;
     }
     keys.add(key);
-    const company = o.company?.trim() ? await findOrCreateCompany(store, o.company, companies) : null;
+    let company = o.company?.trim() ? await findOrCreateCompany(store, o.company, companies) : null;
+    if (company) {
+      company = await fillCompanyInfo(store, company, o.company_info);
+      companies[companies.findIndex((c) => c.id === company!.id)] = company;
+    }
     created.push(
       await store.insert("offers", {
         title: o.title.trim(),
         company_id: company?.id ?? null,
         location: o.location ?? null,
+        remote: o.remote ?? null,
         contract: o.contract ?? null,
         salary: o.salary ?? null,
         url: o.url ?? null,

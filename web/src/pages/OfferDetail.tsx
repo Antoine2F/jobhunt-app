@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Company, Interview, Meeting, Offer, Person, Process, SuggestionResult } from "@jobhunt/core";
 import { api, useApi } from "../api";
-import { fmtDate, fromLocalInput, INTERVIEW_STATUS, MEETING_STATUS, OFFER_STATUS, SOURCE, STAGE, toLocalInput } from "../labels";
+import { APPROACH, companyFacts, fmtDate, fromLocalInput, INTERVIEW_STATUS, MEETING_STATUS, OFFER_STATUS, SOURCE, STAGE, toLocalInput } from "../labels";
 import { formData, Loading, Score, Select, useToast } from "../ui";
 
 interface Detail {
@@ -21,11 +21,29 @@ export function OfferDetailPage() {
   if (!data) return <Loading error={error} loading={loading} />;
   const { offer, company, process, interviews, meetings } = data;
 
-  async function decide(decision: string) {
-    await api(`/offers/${offer.id}/decision`, { method: "POST", body: { decision } });
+  async function decide(decision: string, approach?: "direct" | "network") {
+    await api(`/offers/${offer.id}/decision`, { method: "POST", body: { decision, approach } });
     toast(decision === "apply" ? "Processus créé" : "Statut mis à jour");
     reload();
   }
+  const networkFirst = offer.status === "validated" && offer.approach === "network";
+  const network = (
+    <>
+      <h2>Réseau</h2>
+      {meetings.length > 0 && (
+        <div className="stack" style={{ marginBottom: 12 }}>
+          {meetings.map((m) => (
+            <Link key={m.id} to={`/reseau/${m.person_id}`} className="card row">
+              <b>{m.person?.name}</b>
+              <span className="chip">{MEETING_STATUS[m.status]}</span>
+              <span className="muted small">{m.topic}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+      <Suggestions offerId={offer.id} existing={new Set(meetings.map((m) => m.person_id))} onAdded={reload} />
+    </>
+  );
 
   async function remove() {
     if (!confirm("Supprimer cette offre, son processus et ses entretiens ?")) return;
@@ -44,6 +62,7 @@ export function OfferDetailPage() {
           <div className="muted">
             {company?.name ?? "Entreprise inconnue"}
             {offer.location && ` · ${offer.location}`}
+            {offer.remote && ` · ${offer.remote}`}
             {offer.contract && ` · ${offer.contract}`}
             {offer.salary && ` · ${offer.salary}`}
           </div>
@@ -53,6 +72,7 @@ export function OfferDetailPage() {
 
       <div className="row small" style={{ margin: "12px 0" }}>
         <span className="chip">{OFFER_STATUS[offer.status]}</span>
+        {offer.status === "validated" && offer.approach && <span className="chip ok">{APPROACH[offer.approach]}</span>}
         {offer.source && <span className="muted">{SOURCE[offer.source]}{offer.source_detail && ` (${offer.source_detail})`}</span>}
         <span className="muted">reçue {fmtDate(offer.received_at ?? offer.created_at)}</span>
         {offer.url && (
@@ -65,39 +85,117 @@ export function OfferDetailPage() {
       {offer.score_reason && <p className="card small">{offer.score_reason}</p>}
       {offer.description && <p>{offer.description}</p>}
 
+      {company && <CompanyCard company={company} onSaved={reload} />}
+
+      <h2>Décision</h2>
+      {offer.status === "proposed" && (
+        <p className="small muted">
+          Intéressante ? Choisis comment y aller : <b>réseau d'abord</b> pour chercher quelqu'un qui peut te recommander avant de postuler,
+          ou <b>postuler</b> directement.
+        </p>
+      )}
+      {networkFirst && (
+        <p className="card small">
+          Avant de postuler, trouve quelqu'un qui peut te recommander ou te présenter (contacts ci-dessous). Quand c'est fait, postule en le
+          mentionnant, puis clique sur « J'ai candidaté ».
+        </p>
+      )}
       <div className="row">
         {offer.status === "proposed" && (
           <>
-            <button className="primary" onClick={() => decide("validate")}>Valider</button>
             <button onClick={() => decide("reject")}>Rejeter</button>
+            <button onClick={() => decide("validate", "network")}>Réseau d'abord</button>
+            <button className="primary" onClick={() => decide("validate", "direct")}>Postuler directement</button>
           </>
         )}
-        {(offer.status === "validated" || offer.status === "proposed") && (
-          <button className={offer.status === "validated" ? "primary" : ""} onClick={() => decide("apply")}>
+        {offer.status === "validated" && offer.approach !== "network" && offer.url && (
+          <a className="btn primary" href={offer.url} target="_blank" rel="noreferrer noopener">
+            Ouvrir l'annonce pour postuler ↗
+          </a>
+        )}
+        {offer.status === "validated" && (
+          <button className={networkFirst || !offer.url ? "primary" : ""} onClick={() => decide("apply")}>
             J'ai candidaté
           </button>
         )}
+        {offer.status === "validated" &&
+          (networkFirst ? (
+            <button onClick={() => decide("validate", "direct")}>Postuler directement finalement</button>
+          ) : (
+            <button onClick={() => decide("validate", "network")}>Plutôt réseau d'abord</button>
+          ))}
+        {offer.status === "validated" && <button onClick={() => decide("reject")}>Rejeter</button>}
         {offer.status === "rejected" && <button onClick={() => decide("validate")}>Revalider</button>}
         {offer.status === "applied" && <button onClick={() => decide("close")}>Clore</button>}
         <button className="danger" onClick={remove} style={{ marginLeft: "auto" }}>Supprimer</button>
       </div>
 
+      {networkFirst && network}
       {process && <ProcessCard process={process} onSaved={reload} />}
       {process && <Interviews processId={process.id} interviews={interviews} onChange={reload} />}
+      {!networkFirst && network}
+    </>
+  );
+}
 
-      <h2>Réseau</h2>
-      {meetings.length > 0 && (
-        <div className="stack" style={{ marginBottom: 12 }}>
-          {meetings.map((m) => (
-            <Link key={m.id} to={`/reseau/${m.person_id}`} className="card row">
-              <b>{m.person?.name}</b>
-              <span className="chip">{MEETING_STATUS[m.status]}</span>
-              <span className="muted small">{m.topic}</span>
-            </Link>
-          ))}
+function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => void }) {
+  const toast = useToast();
+  const facts = companyFacts(company);
+  const empty = !company.description && !facts && !company.headquarters;
+  async function save(e: React.FormEvent<HTMLFormElement>) {
+    await api(`/companies/${company.id}`, { method: "PATCH", body: formData(e) });
+    toast("Entreprise enregistrée");
+    onSaved();
+  }
+  return (
+    <>
+      <h2>L'entreprise</h2>
+      <div className="card">
+        <div className="spread">
+          <b>{company.name}</b>
+          {company.website && (
+            <a className="small" href={company.website} target="_blank" rel="noreferrer noopener">
+              Site ↗
+            </a>
+          )}
         </div>
-      )}
-      <Suggestions offerId={offer.id} existing={new Set(meetings.map((m) => m.person_id))} onAdded={reload} />
+        {facts && <div className="small muted">{facts}</div>}
+        {company.headquarters && <div className="small muted">Siège : {company.headquarters}</div>}
+        {company.description && <p className="small" style={{ margin: "6px 0 0" }}>{company.description}</p>}
+        {empty && <p className="small muted">Pas encore d'informations : la veille les ajoute pour les offres bien notées, ou complète-les ici.</p>}
+        <details style={{ marginTop: 8 }}>
+          <summary className="small" style={{ cursor: "pointer" }}>Compléter</summary>
+          <form className="form" onSubmit={save} key={company.updated_at} style={{ marginTop: 8 }}>
+            <label className="full">
+              Ce que fait l'entreprise
+              <textarea name="description" defaultValue={company.description ?? ""} />
+            </label>
+            <label>
+              Secteur
+              <input name="sector" defaultValue={company.sector ?? ""} />
+            </label>
+            <label>
+              Effectif
+              <input name="size" defaultValue={company.size ?? ""} placeholder="450 salariés" />
+            </label>
+            <label>
+              Financement / stade
+              <input name="funding" defaultValue={company.funding ?? ""} placeholder="Série C, 2025" />
+            </label>
+            <label>
+              Siège
+              <input name="headquarters" defaultValue={company.headquarters ?? ""} />
+            </label>
+            <label className="full">
+              Site
+              <input name="website" type="url" defaultValue={company.website ?? ""} />
+            </label>
+            <div className="full">
+              <button className="primary">Enregistrer</button>
+            </div>
+          </form>
+        </details>
+      </div>
     </>
   );
 }
@@ -278,10 +376,14 @@ function Suggestions({ offerId, existing, onAdded }: { offerId: string; existing
           </div>
         </div>
       ))}
-      {data.linkedin_search_url && (
-        <a className="btn" href={data.linkedin_search_url} target="_blank" rel="noreferrer noopener">
-          Chercher mes relations chez {data.company?.name} sur LinkedIn ↗
-        </a>
+      {data.linkedin_searches.length > 0 && (
+        <div className="row">
+          {data.linkedin_searches.map((l) => (
+            <a key={l.url} className="btn" href={l.url} target="_blank" rel="noreferrer noopener">
+              {l.label} sur LinkedIn ↗
+            </a>
+          ))}
+        </div>
       )}
     </div>
   );

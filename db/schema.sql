@@ -11,6 +11,9 @@ IF COL_LENGTH(N'dbo.[companies]', N'name') IS NULL ALTER TABLE dbo.[companies] A
 IF COL_LENGTH(N'dbo.[companies]', N'sector') IS NULL ALTER TABLE dbo.[companies] ADD [sector] NVARCHAR(120) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'size') IS NULL ALTER TABLE dbo.[companies] ADD [size] NVARCHAR(60) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'website') IS NULL ALTER TABLE dbo.[companies] ADD [website] NVARCHAR(400) NULL;
+IF COL_LENGTH(N'dbo.[companies]', N'description') IS NULL ALTER TABLE dbo.[companies] ADD [description] NVARCHAR(MAX) NULL;
+IF COL_LENGTH(N'dbo.[companies]', N'funding') IS NULL ALTER TABLE dbo.[companies] ADD [funding] NVARCHAR(200) NULL;
+IF COL_LENGTH(N'dbo.[companies]', N'headquarters') IS NULL ALTER TABLE dbo.[companies] ADD [headquarters] NVARCHAR(200) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'knowledge_path') IS NULL ALTER TABLE dbo.[companies] ADD [knowledge_path] NVARCHAR(400) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'notes') IS NULL ALTER TABLE dbo.[companies] ADD [notes] NVARCHAR(MAX) NULL;
 GO
@@ -24,6 +27,7 @@ CREATE TABLE dbo.[offers] (
 IF COL_LENGTH(N'dbo.[offers]', N'company_id') IS NULL ALTER TABLE dbo.[offers] ADD [company_id] NVARCHAR(36) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'title') IS NULL ALTER TABLE dbo.[offers] ADD [title] NVARCHAR(300) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'location') IS NULL ALTER TABLE dbo.[offers] ADD [location] NVARCHAR(200) NULL;
+IF COL_LENGTH(N'dbo.[offers]', N'remote') IS NULL ALTER TABLE dbo.[offers] ADD [remote] NVARCHAR(120) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'contract') IS NULL ALTER TABLE dbo.[offers] ADD [contract] NVARCHAR(60) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'salary') IS NULL ALTER TABLE dbo.[offers] ADD [salary] NVARCHAR(120) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'source') IS NULL ALTER TABLE dbo.[offers] ADD [source] NVARCHAR(20) NULL;
@@ -32,6 +36,7 @@ IF COL_LENGTH(N'dbo.[offers]', N'url') IS NULL ALTER TABLE dbo.[offers] ADD [url
 IF COL_LENGTH(N'dbo.[offers]', N'url_key') IS NULL ALTER TABLE dbo.[offers] ADD [url_key] NVARCHAR(400) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'description') IS NULL ALTER TABLE dbo.[offers] ADD [description] NVARCHAR(MAX) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'status') IS NULL ALTER TABLE dbo.[offers] ADD [status] NVARCHAR(20) NULL;
+IF COL_LENGTH(N'dbo.[offers]', N'approach') IS NULL ALTER TABLE dbo.[offers] ADD [approach] NVARCHAR(20) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'score') IS NULL ALTER TABLE dbo.[offers] ADD [score] INT NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'score_reason') IS NULL ALTER TABLE dbo.[offers] ADD [score_reason] NVARCHAR(MAX) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'decision_note') IS NULL ALTER TABLE dbo.[offers] ADD [decision_note] NVARCHAR(MAX) NULL;

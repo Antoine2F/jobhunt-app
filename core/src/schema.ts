@@ -25,6 +25,8 @@ export const INTERVIEW_STATUSES = ["to_prepare", "done", "cancelled"] as const;
 export const MEETING_STATUSES = ["to_see", "planned", "seen", "cancelled"] as const;
 export const INTRO_STATUSES = ["to_ask", "asked", "done", "declined"] as const;
 export const OFFER_SOURCES = ["linkedin", "wttj", "cabinet", "manual", "network", "other"] as const;
+/** Une fois l'offre validée : candidater tout de suite, ou chercher d'abord une recommandation. */
+export const OFFER_APPROACHES = ["direct", "network"] as const;
 
 export type OfferStatus = (typeof OFFER_STATUSES)[number];
 export type ProcessStage = (typeof PROCESS_STAGES)[number];
@@ -32,6 +34,7 @@ export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
 export type MeetingStatus = (typeof MEETING_STATUSES)[number];
 export type IntroStatus = (typeof INTRO_STATUSES)[number];
 export type OfferSource = (typeof OFFER_SOURCES)[number];
+export type OfferApproach = (typeof OFFER_APPROACHES)[number];
 
 type ColType = "string" | "text" | "int" | "datetime" | "date";
 
@@ -47,8 +50,11 @@ export const TABLES = {
   companies: {
     name: { type: "string", required: true, max: 200 },
     sector: { type: "string", max: 120 },
-    size: { type: "string", max: 60 },
+    size: { type: "string", max: 60 }, // effectif, ex. « 450 salariés »
     website: { type: "string", max: 400 },
+    description: { type: "text" }, // ce que fait l'entreprise
+    funding: { type: "string", max: 200 }, // stade, dernière levée
+    headquarters: { type: "string", max: 200 },
     knowledge_path: { type: "string", max: 400 },
     notes: { type: "text" },
   },
@@ -56,6 +62,7 @@ export const TABLES = {
     company_id: { type: "string", max: 36 },
     title: { type: "string", required: true, max: 300 },
     location: { type: "string", max: 200 },
+    remote: { type: "string", max: 120 }, // politique de télétravail
     contract: { type: "string", max: 60 },
     salary: { type: "string", max: 120 },
     source: { type: "string", enum: OFFER_SOURCES, max: 20 },
@@ -64,6 +71,7 @@ export const TABLES = {
     url_key: { type: "string", max: 400 },
     description: { type: "text" },
     status: { type: "string", enum: OFFER_STATUSES, required: true, max: 20 },
+    approach: { type: "string", enum: OFFER_APPROACHES, max: 20 },
     score: { type: "int" },
     score_reason: { type: "text" },
     decision_note: { type: "text" },
