@@ -216,6 +216,25 @@ describe("router : revue des offres et reprise de l'historique", () => {
     expect(offers.find((o) => o.title === "Senior PM APM")!.status).toBe("applied");
   });
 
+  it("importe une offre « à postuler », puis la candidature la fait avancer", async () => {
+    const store = setup();
+    const call = (body: unknown) => handle(req("POST", "/ingest/import", body, { user: null, headers }), store, env);
+    const offer = { company: "Alma", title: "Lead PM Paiements", url: "https://jobs.lever.co/alma/abc?utm_source=x", stage: "to_apply" };
+    const first = (await call({ processes: [offer] })).body as { counts: Record<string, Record<string, number>> };
+    expect(first.counts.offer.created).toBe(1);
+    const o = (await store.list("offers")).find((x) => x.title === "Lead PM Paiements")!;
+    expect(o).toMatchObject({ status: "validated", approach: "direct" });
+    expect((await store.list("processes")).find((p) => p.offer_id === o.id)!.stage).toBe("to_apply");
+
+    // Même URL : rien de nouveau.
+    const again = (await call({ processes: [{ ...offer, url: "https://jobs.lever.co/alma/abc" }] })).body as { counts: Record<string, Record<string, number>> };
+    expect(again.counts.offer.created + again.counts.process.created).toBe(0);
+
+    const res = await handle(req("POST", `/offers/${o.id}/decision`, { decision: "apply" }), store, env);
+    expect((res.body as { process: { stage: string } }).process.stage).toBe("applied");
+    expect((await store.list("processes")).filter((p) => p.offer_id === o.id)).toHaveLength(1);
+  });
+
   it("refuse un lot invalide sans rien écrire", async () => {
     const store = setup();
     const before = (await store.list("offers")).length;

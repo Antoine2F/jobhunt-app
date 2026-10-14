@@ -19,7 +19,7 @@ api/      API HTTP : Azure Functions (fonctions gérées par Static Web Apps) + 
 web/      interface React (Vite), PWA
 db/       schéma SQL généré (npx tsx scripts/gen-schema.ts)
 infra/    Bicep + script de déploiement Azure
-skills/   skills Claude Desktop : veille des alertes e-mail (tâche planifiée), veille LinkedIn (computer use), reprise de l'historique
+skills/   skills Claude Desktop : veille des alertes e-mail (tâche planifiée), veille LinkedIn (computer use), reprise de l'historique, ajout d'une offre analysée
 ```
 
 | Brique | Service | Coût attendu |
@@ -77,7 +77,9 @@ L'appli est protégée par la connexion GitHub de Static Web Apps, et l'API n'ac
 1. **À valider** : remontée par la veille, notée sur 100, avec ce que fait l'entreprise, son effectif, son financement, le lieu et le télétravail. Tu la **rejettes**, ou tu la valides en choisissant comment y aller.
 2. **Réseau d'abord** : tu cherches quelqu'un qui peut te recommander. La page de l'offre met en avant les contacts de ton réseau liés à l'entreprise (y travaillent, y ont travaillé, peuvent te présenter) et des recherches LinkedIn préremplies. Un contact retenu devient une rencontre « à voir » liée à l'offre.
    **À postuler** : candidature directe, le lien de l'annonce est en premier.
-3. **Candidature** : « J'ai candidaté » crée le processus (étapes, entretiens, prochaine action).
+3. **Candidature** : « J'ai candidaté » crée le processus (étapes, entretiens, prochaine action), ou fait passer à « Candidature envoyée » un processus « À postuler ».
+
+Une offre analysée dans une conversation Claude (process « nouvelle offre ») arrive directement en processus **À postuler** (`to_apply`) par le skill `nouvelle-offre-jobhunt` : une seule offre, dédupliquée par URL, sans passer par la boîte de validation.
 
 Recherches LinkedIn par affinité : renseigne `NETWORK_AFFINITIES` dans les paramètres de la Static Web App (écoles et anciens employeurs séparés par des virgules, ex. `Polytechnique,Télécom Paris,Microsoft`) ; chaque offre propose alors « Polytechnique chez <entreprise> », etc.
 

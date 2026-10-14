@@ -179,6 +179,7 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
       if (status === "applied") {
         process = (await store.list("processes")).find((p) => p.offer_id === offer.id) ?? null;
         if (!process) process = await store.insert("processes", { offer_id: offer.id, stage: "applied" });
+        else if (process.stage === "to_apply") process = await store.update("processes", process.id, { stage: "applied" });
       }
       return ok({ offer: updated, process });
     }
