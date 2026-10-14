@@ -24,6 +24,7 @@ Même configuration que le skill `veille-offres` : le dossier de travail est mon
 2. **Ouvre LinkedIn** > Emplois > « Mes alertes emploi » (ou les recherches sauvegardées), une alerte à la fois, triées par « Plus récentes ».
 3. Pour chaque offre de la liste (panneau de droite) relève : intitulé, entreprise, lieu, type de contrat et salaire s'ils sont affichés, URL (`https://www.linkedin.com/jobs/view/<id>/`), et 2 ou 3 phrases de description.
 4. **Note** chaque offre de 0 à 100 par rapport au profil, avec une ligne de justification (`score_reason`). Pénalise fortement ce qui figure dans « ce que je ne cherche pas ».
+4 bis. **Pour les offres d'au moins 50**, complète l'entreprise dans `company_info` en suivant le skill **`fiche-entreprise`** (une seule recherche par entreprise ; demande d'abord `GET $APP_URL/api/ingest/companies` et ne cherche que les champs encore vides). Une entreprise classée `ESN / Conseil IT` fait retomber l'offre à 20 au plus.
 5. **Envoie** le lot à l'appli (doublons ignorés automatiquement) :
 
 ```bash
@@ -49,7 +50,10 @@ Format de `/tmp/linkedin-offres.json` :
       "url": "https://www.linkedin.com/jobs/view/1234567890/",
       "description": "…",
       "score": 82,
-      "score_reason": "…"
+      "score_reason": "…",
+      "company_info": { "description": "…", "sector": "Software / SaaS", "size": "450 salariés",
+                        "headquarters": "Paris, France", "dev_offices": "Paris", "founders_nationality": "Française",
+                        "capital_origin": "VC français (Eurazeo)", "funding": "Série B, 2025" }
     }
   ]
 }

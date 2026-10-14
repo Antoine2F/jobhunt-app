@@ -114,6 +114,9 @@ export async function listCompaniesForReview(store: Store) {
     website: c.website ?? null,
     funding: c.funding ?? null,
     headquarters: c.headquarters ?? null,
+    dev_offices: c.dev_offices ?? null,
+    founders_nationality: c.founders_nationality ?? null,
+    capital_origin: c.capital_origin ?? null,
     offers: offers.filter((o) => o.company_id === c.id).length,
   }));
 }

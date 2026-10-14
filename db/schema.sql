@@ -14,6 +14,9 @@ IF COL_LENGTH(N'dbo.[companies]', N'website') IS NULL ALTER TABLE dbo.[companies
 IF COL_LENGTH(N'dbo.[companies]', N'description') IS NULL ALTER TABLE dbo.[companies] ADD [description] NVARCHAR(MAX) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'funding') IS NULL ALTER TABLE dbo.[companies] ADD [funding] NVARCHAR(200) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'headquarters') IS NULL ALTER TABLE dbo.[companies] ADD [headquarters] NVARCHAR(200) NULL;
+IF COL_LENGTH(N'dbo.[companies]', N'dev_offices') IS NULL ALTER TABLE dbo.[companies] ADD [dev_offices] NVARCHAR(400) NULL;
+IF COL_LENGTH(N'dbo.[companies]', N'founders_nationality') IS NULL ALTER TABLE dbo.[companies] ADD [founders_nationality] NVARCHAR(200) NULL;
+IF COL_LENGTH(N'dbo.[companies]', N'capital_origin') IS NULL ALTER TABLE dbo.[companies] ADD [capital_origin] NVARCHAR(400) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'knowledge_path') IS NULL ALTER TABLE dbo.[companies] ADD [knowledge_path] NVARCHAR(400) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'notes') IS NULL ALTER TABLE dbo.[companies] ADD [notes] NVARCHAR(MAX) NULL;
 GO

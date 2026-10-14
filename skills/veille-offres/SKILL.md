@@ -64,8 +64,8 @@ Ajoute ici les cabinets dont je reçois les alertes.
 
 5 bis. **Complète les offres dont le score est d'au moins 50**, pour que je puisse décider sans chercher (les autres, inutile) :
    - **page de l'offre** (si elle s'ouvre sans connexion) : `location` précise (ville, voire adresse du bureau), `remote` (politique de télétravail, ex. « 2 j/sem. »), `salary` s'il est publié ;
-   - **entreprise**, dans `company_info` : `description` (ce qu'elle fait, 1 ou 2 phrases), `size` (effectif, ex. « 450 salariés »), `sector`, `funding` (stade ou dernière levée, ex. « Série C, 2025 »), `headquarters`, `website`. Sources : site de l'entreprise, page carrière, presse. Cherche une seule fois par entreprise : demande d'abord la liste de celles déjà décrites (`GET $APP_URL/api/ingest/companies`) et saute celles qui ont déjà une `description`.
-   Si une information est introuvable, omets le champ ; n'estime pas.
+   - **entreprise**, dans `company_info` : suis le skill **`fiche-entreprise`** (champs, liste des secteurs, sources, règles). Cherche une seule fois par entreprise : demande d'abord la liste de celles déjà connues (`GET $APP_URL/api/ingest/companies`) et ne cherche que leurs champs encore vides.
+   Si une information est introuvable, omets le champ ; n'estime pas. Si `fiche-entreprise` classe l'entreprise en `ESN / Conseil IT`, l'offre ne dépasse pas 20 (point non négociable).
 
 6. **Envoie un lot par e-mail** (le serveur ignore les doublons et mémorise l'e-mail comme traité) :
    ```bash
@@ -80,8 +80,10 @@ Ajoute ici les cabinets dont je reçois les alertes.
      "received_at": "<date de l'e-mail, ISO 8601>",
      "offers": [ { "title": "…", "company": "…", "location": "…", "remote": "2 j/sem.", "contract": null, "salary": null,
                    "url": "…", "description": "…", "score": 78, "score_reason": "…",
-                   "company_info": { "description": "…", "size": "450 salariés", "sector": "logiciel",
-                                     "funding": "Série C, 2025", "headquarters": "Paris 9e", "website": "https://…" } } ]
+                   "company_info": { "description": "…", "size": "450 salariés", "sector": "Software / SaaS",
+                                     "funding": "Série C, 2025", "headquarters": "Paris, France", "website": "https://…",
+                                     "dev_offices": "Paris, Lisbonne", "founders_nationality": "Française",
+                                     "capital_origin": "VC européens (Partech, Balderton)" } } ]
    }
    ```
    Envoie aussi les e-mails sans offre (`"offers": []`) pour qu'ils ne soient pas relus. Les infos d'entreprise ne remplissent que les champs encore vides : ce que j'ai saisi n'est jamais écrasé.
@@ -103,10 +105,10 @@ Quand je dis « renote les offres » (par exemple après une mise à jour de mon
    curl -sS -X PATCH "$APP_URL/api/ingest/offers/<id>" -H "content-type: application/json" \
      -H "x-ingest-key: $INGEST_KEY" -d '{"score": 15, "score_reason": "ESN : point non négociable"}'
    ```
-   Pour une offre d'au moins 50 sans `location` précise ou `remote`, ajoute ces champs au même `PATCH` s'ils sont sur la page de l'offre ; et complète les entreprises sans `description` comme à l'étape 5 bis :
+   Pour une offre d'au moins 50 sans `location` précise ou `remote`, ajoute ces champs au même `PATCH` s'ils sont sur la page de l'offre ; et complète les champs vides des entreprises avec le skill `fiche-entreprise`, comme à l'étape 5 bis :
    ```bash
    curl -sS -X PATCH "$APP_URL/api/ingest/companies/<company_id>" -H "content-type: application/json" \
-     -H "x-ingest-key: $INGEST_KEY" -d '{"description": "…", "size": "450 salariés", "funding": "Série C, 2025"}'
+     -H "x-ingest-key: $INGEST_KEY" -d '{"description": "…", "sector": "Software / SaaS", "dev_offices": "Paris, Lisbonne"}'
    ```
 4. **Écarter des offres** : présente-moi d'abord la liste des offres qui violent un point non négociable, groupées par motif. Seulement après mon accord, envoie pour chacune `{"status": "rejected", "decision_note": "<motif>"}` sur la même route. Tu ne peux changer le statut que d'une offre encore « à valider » (sinon réponse 409) : mes décisions ne sont jamais écrasées.
 5. Résume : offres renotées, offres écartées, les 5 meilleures avec leur nouveau score.
