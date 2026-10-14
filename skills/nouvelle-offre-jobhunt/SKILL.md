@@ -9,10 +9,24 @@ Tu tournes dans Claude Desktop sur mon abonnement : **aucune API payante n'est a
 
 Ce skill ne cherche rien : pas de Gmail, pas de Notion, pas d'agenda, pas de tableau de synthèse à valider.
 
-## Prérequis
+## Prérequis : adresse de l'appli et clé d'ingestion
 
-- Dossier de travail : mon clone local de `jobhunt-knowledge`, avec `.jobhunt.env` (`APP_URL`, `INGEST_KEY`), comme pour `veille-offres`.
-- Si `.jobhunt.env` manque, arrête-toi et dis-le.
+Il te faut `APP_URL` et `INGEST_KEY`. Cherche-les dans cet ordre et prends la première source qui les donne toutes les deux :
+
+1. variables d'environnement `APP_URL` et `INGEST_KEY` ;
+2. fichier `.jobhunt.env` du dossier de travail (clone de `jobhunt-knowledge` dans Claude Desktop) ;
+3. fichier `config.env` à côté de ce `SKILL.md` (dossier du skill) ;
+4. fichiers du projet Claude (connaissances du projet) : un fichier `jobhunt.env` ou `.jobhunt.env`, ou un texte contenant `APP_URL=` et `INGEST_KEY=` ;
+5. sinon, demande-les-moi en une seule question, puis continue.
+
+Une valeur restée à `<…>` (modèle non rempli) compte comme absente. Ne recopie jamais `INGEST_KEY` dans ta réponse ni dans un fichier.
+
+Dans les commandes ci-dessous, exporte d'abord les deux valeurs :
+```bash
+export APP_URL="https://…" INGEST_KEY="…"
+```
+
+Si tu n'as ni terminal ni accès réseau vers l'appli (domaine `*.azurestaticapps.net` bloqué), ne t'arrête pas en silence : affiche le JSON du lot (étape 1) et la commande `curl` à lancer, et dis-moi d'autoriser le domaine dans les paramètres réseau de Claude.
 
 ## Entrée
 
@@ -34,7 +48,7 @@ Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends
 
 ## Étapes
 
-1. **Prépare le lot** dans `veille/nouvelle-offre.json` (dossier ignoré par git) : un seul processus, `stage` fixé à `to_apply`.
+1. **Prépare le lot** dans `veille/nouvelle-offre.json` s'il existe un dossier de travail `jobhunt-knowledge` (dossier `veille/` ignoré par git), sinon dans un fichier temporaire `nouvelle-offre.json` : un seul processus, `stage` fixé à `to_apply`.
    ```json
    {
      "processes": [
@@ -57,9 +71,8 @@ Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends
 
 2. **Simule** pour dédupliquer (rien n'est écrit) :
    ```bash
-   source .jobhunt.env
    curl -sS -X POST "$APP_URL/api/ingest/import?dry_run=1" -H "content-type: application/json" \
-     -H "x-ingest-key: $INGEST_KEY" -d @veille/nouvelle-offre.json
+     -H "x-ingest-key: $INGEST_KEY" -d @<chemin du lot>
    ```
    Si l'appli renvoie 500, 502 ou 504 au premier appel, la base gratuite redémarre : attends 60 secondes et réessaie, jusqu'à 2 fois.
    Lis `counts` dans la réponse :
@@ -77,3 +90,4 @@ Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends
 - Une offre par appel, toujours au stage `to_apply`. Pour faire avancer un processus existant, c'est l'appli (« J'ai candidaté ») ou le skill `reprise-historique`.
 - Pas de confirmation supplémentaire : l'offre a déjà été validée dans les étapes précédentes du process « nouvelle offre ».
 - N'écris rien dans le dépôt de connaissance en dehors de `veille/`.
+- `INGEST_KEY` est un secret : jamais dans une réponse, un résumé ou un fichier du dépôt.
