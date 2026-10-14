@@ -29,6 +29,31 @@ export const OFFER_SOURCES = ["linkedin", "wttj", "cabinet", "manual", "network"
 /** Une fois l'offre validée : candidater tout de suite, ou chercher d'abord une recommandation. */
 export const OFFER_APPROACHES = ["direct", "network"] as const;
 
+/**
+ * Secteurs de référence. La colonne reste en texte libre (fiches déjà saisies),
+ * mais l'interface et les skills proposent cette liste pour pouvoir filtrer.
+ */
+export const COMPANY_SECTORS = [
+  "Software / SaaS",
+  "Data / IA",
+  "Cybersécurité",
+  "ESN / Conseil IT",
+  "Conseil",
+  "Fintech / Banque / Assurance",
+  "Santé",
+  "RH",
+  "E-commerce / Retail",
+  "Industrie",
+  "Énergie / Climat",
+  "Mobilité / Transport",
+  "Médias / Divertissement",
+  "Marketing / Publicité",
+  "Éducation",
+  "Immobilier",
+  "Secteur public",
+  "Autre",
+] as const;
+
 export type OfferStatus = (typeof OFFER_STATUSES)[number];
 export type ProcessStage = (typeof PROCESS_STAGES)[number];
 export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
@@ -55,7 +80,10 @@ export const TABLES = {
     website: { type: "string", max: 400 },
     description: { type: "text" }, // ce que fait l'entreprise
     funding: { type: "string", max: 200 }, // stade, dernière levée
-    headquarters: { type: "string", max: 200 },
+    headquarters: { type: "string", max: 200 }, // ville et pays du siège
+    dev_offices: { type: "string", max: 400 }, // où sont les équipes produit / tech
+    founders_nationality: { type: "string", max: 200 },
+    capital_origin: { type: "string", max: 400 }, // qui détient le capital (VC US, fonds français, fondateurs, groupe…)
     knowledge_path: { type: "string", max: 400 },
     notes: { type: "text" },
   },

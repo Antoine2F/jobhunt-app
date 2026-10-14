@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Company, Interview, Meeting, Offer, Person, Process, SuggestionResult } from "@jobhunt/core";
+// Seul le schéma est importé en valeur : le reste du noyau dépend de Node.
+import { COMPANY_SECTORS } from "@jobhunt/core/schema";
 import { api, useApi } from "../api";
 import { APPROACH, companyFacts, fmtDate, fromLocalInput, INTERVIEW_STATUS, MEETING_STATUS, OFFER_STATUS, SOURCE, STAGE, toLocalInput } from "../labels";
 import { formData, Loading, Score, Select, useToast } from "../ui";
@@ -141,7 +143,7 @@ export function OfferDetailPage() {
 function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => void }) {
   const toast = useToast();
   const facts = companyFacts(company);
-  const empty = !company.description && !facts && !company.headquarters;
+  const empty = !company.description && !facts && !company.headquarters && !company.dev_offices && !company.capital_origin;
   async function save(e: React.FormEvent<HTMLFormElement>) {
     await api(`/companies/${company.id}`, { method: "PATCH", body: formData(e) });
     toast("Entreprise enregistrée");
@@ -161,6 +163,9 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
         </div>
         {facts && <div className="small muted">{facts}</div>}
         {company.headquarters && <div className="small muted">Siège : {company.headquarters}</div>}
+        {company.dev_offices && <div className="small muted">Équipes produit / tech : {company.dev_offices}</div>}
+        {company.founders_nationality && <div className="small muted">Fondateurs : {company.founders_nationality}</div>}
+        {company.capital_origin && <div className="small muted">Capital : {company.capital_origin}</div>}
         {company.description && <p className="small" style={{ margin: "6px 0 0" }}>{company.description}</p>}
         {empty && <p className="small muted">Pas encore d'informations : la veille les ajoute pour les offres bien notées, ou complète-les ici.</p>}
         <details style={{ marginTop: 8 }}>
@@ -172,7 +177,12 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
             </label>
             <label>
               Secteur
-              <input name="sector" defaultValue={company.sector ?? ""} />
+              <input name="sector" list="sectors" defaultValue={company.sector ?? ""} />
+              <datalist id="sectors">
+                {COMPANY_SECTORS.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
             </label>
             <label>
               Effectif
@@ -183,8 +193,20 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
               <input name="funding" defaultValue={company.funding ?? ""} placeholder="Série C, 2025" />
             </label>
             <label>
-              Siège
-              <input name="headquarters" defaultValue={company.headquarters ?? ""} />
+              Siège (ville, pays)
+              <input name="headquarters" defaultValue={company.headquarters ?? ""} placeholder="Paris, France" />
+            </label>
+            <label>
+              Équipes produit / tech
+              <input name="dev_offices" defaultValue={company.dev_offices ?? ""} placeholder="Paris, Lisbonne" />
+            </label>
+            <label>
+              Nationalité des fondateurs
+              <input name="founders_nationality" defaultValue={company.founders_nationality ?? ""} placeholder="Française" />
+            </label>
+            <label className="full">
+              Origine des capitaux
+              <input name="capital_origin" defaultValue={company.capital_origin ?? ""} placeholder="VC US (Sequoia), fondateurs majoritaires" />
             </label>
             <label className="full">
               Site

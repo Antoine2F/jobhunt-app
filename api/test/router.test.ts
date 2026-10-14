@@ -267,7 +267,16 @@ describe("router : choix de l'approche et fiches entreprise", () => {
   it("la veille complète l'entreprise sans écraser ce qui est saisi", async () => {
     const store = setup();
     const call = (method: string, path: string, body: unknown = null) => handle(req(method, path, body, { user: null, headers }), store, env);
-    const info = { description: "Plateforme d'observabilité", size: "6 500 salariés", sector: "logiciel", funding: "Cotée (Nasdaq)" };
+    const info = {
+      description: "Plateforme d'observabilité",
+      size: "6 500 salariés",
+      sector: "Software / SaaS",
+      funding: "Cotée (Nasdaq)",
+      headquarters: "New York, États-Unis",
+      dev_offices: "New York, Paris",
+      founders_nationality: "Française",
+      capital_origin: "Coté au Nasdaq, flottant majoritairement US",
+    };
     await call("POST", "/ingest", { source: "linkedin", offers: [{ title: "Senior PM", company: "Datadog", remote: "2 j/sem.", company_info: info }] });
     const dd = (await store.list("companies")).find((c) => c.name === "Datadog")!;
     expect(dd).toMatchObject(info);
@@ -278,8 +287,8 @@ describe("router : choix de l'approche et fiches entreprise", () => {
     expect(await store.get("companies", dd.id)).toMatchObject({ size: "6 500 salariés", website: "https://datadoghq.com" });
 
     // Routes dédiées : liste, complément, correction explicite.
-    const list = (await call("GET", "/ingest/companies")).body as { companies: { id: string; offers: number }[] };
-    expect(list.companies.find((c) => c.id === dd.id)!.offers).toBe(1);
+    const list = (await call("GET", "/ingest/companies")).body as { companies: { id: string; offers: number; dev_offices: string }[] };
+    expect(list.companies.find((c) => c.id === dd.id)).toMatchObject({ offers: 1, dev_offices: "New York, Paris" });
     await call("PATCH", `/ingest/companies/${dd.id}`, { size: "7 000 salariés" });
     expect((await store.get("companies", dd.id))!.size).toBe("6 500 salariés");
     await call("PATCH", `/ingest/companies/${dd.id}`, { size: "7 000 salariés", overwrite: true });

@@ -27,9 +27,22 @@ export interface CompanyInfo {
   website?: string | null;
   funding?: string | null;
   headquarters?: string | null;
+  dev_offices?: string | null;
+  founders_nationality?: string | null;
+  capital_origin?: string | null;
 }
 
-const COMPANY_INFO_FIELDS = ["description", "size", "sector", "website", "funding", "headquarters"] as const;
+const COMPANY_INFO_FIELDS = [
+  "description",
+  "size",
+  "sector",
+  "website",
+  "funding",
+  "headquarters",
+  "dev_offices",
+  "founders_nationality",
+  "capital_origin",
+] as const;
 
 /** Complète les champs vides d'une entreprise sans écraser ce qui a été saisi. */
 export async function fillCompanyInfo(store: Store, company: Company, info: CompanyInfo | null | undefined): Promise<Company> {

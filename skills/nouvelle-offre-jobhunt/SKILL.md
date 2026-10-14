@@ -40,13 +40,15 @@ Le payload de l'offre déjà extrait (dans la conversation ou fourni en argument
 | `location`, `contract`, `salary`, `description` | non | |
 | `source` | non | `linkedin`, `wttj`, `cabinet`, `manual`, `network`, `other` (défaut : `manual`) |
 | `source_detail` | non | ex. « Annonce LinkedIn », « Envoyée par X » |
-| `company_info` | non | `description`, `size`, `sector`, `funding`, `headquarters`, `website` |
+| `company_info` | non | voir le skill `fiche-entreprise` : `description`, `sector`, `size`, `headquarters`, `dev_offices`, `founders_nationality`, `capital_origin`, `funding`, `website` |
 | `next_step`, `next_step_date` | non | ex. « Postuler », `AAAA-MM-JJ` (date limite si connue) |
 | `notes` | non | synthèse de l'analyse : score, points forts, points de vigilance |
 
 Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends. N'invente rien : un champ inconnu est omis, jamais envoyé à `null`.
 
 ## Étapes
+
+0. **Fiche entreprise** : si le payload n'a pas de `company_info` (ou seulement quelques champs), complète-le avec le skill **`fiche-entreprise`** avant d'envoyer, en ne cherchant que ce qui manque. Si elle tombe en `ESN / Conseil IT`, signale-le-moi (point non négociable) mais envoie quand même : c'est moi qui ai retenu l'offre.
 
 1. **Prépare le lot** dans `veille/nouvelle-offre.json` s'il existe un dossier de travail `jobhunt-knowledge` (dossier `veille/` ignoré par git), sinon dans un fichier temporaire `nouvelle-offre.json` : un seul processus, `stage` fixé à `to_apply`.
    ```json
@@ -60,7 +62,8 @@ Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends
          "contract": "CDI",
          "source": "linkedin",
          "source_detail": "Annonce LinkedIn",
-         "company_info": { "description": "Paiement fractionné pour les commerçants", "size": "400 salariés" },
+         "company_info": { "description": "Paiement fractionné pour les commerçants", "sector": "Fintech / Banque / Assurance",
+                          "size": "400 salariés", "headquarters": "Paris, France", "founders_nationality": "Française" },
          "stage": "to_apply",
          "next_step": "Postuler",
          "notes": "Score 78/100. Points forts : … Vigilance : …"
