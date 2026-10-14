@@ -12,6 +12,7 @@ export const APPROACH: Record<string, string> = {
 };
 
 export const STAGE: Record<string, string> = {
+  to_apply: "À postuler",
   applied: "Candidature envoyée",
   screening: "Préqualification",
   interviews: "Entretiens",

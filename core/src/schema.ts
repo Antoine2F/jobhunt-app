@@ -10,6 +10,7 @@ export const OFFER_STATUSES = [
 ] as const;
 
 export const PROCESS_STAGES = [
+  "to_apply", // retenue, candidature pas encore envoyée
   "applied",
   "screening",
   "interviews",

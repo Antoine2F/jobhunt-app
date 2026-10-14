@@ -96,7 +96,7 @@ Ce skill sert à l'initialisation, puis à chaque fois que je veux rattraper un 
 ```
 
 Valeurs autorisées :
-- `stage` : `applied` (candidature envoyée), `screening` (premier échange recruteur), `interviews`, `case_study`, `final`, `offer` (proposition reçue), `won`, `lost` (refus), `withdrawn` (je me suis retiré). `won`, `lost` et `withdrawn` clôturent l'offre.
+- `stage` : `to_apply` (offre retenue, candidature pas encore envoyée : l'offre reste « validée », en candidature directe), `applied` (candidature envoyée), `screening` (premier échange recruteur), `interviews`, `case_study`, `final`, `offer` (proposition reçue), `won`, `lost` (refus), `withdrawn` (je me suis retiré). `won`, `lost` et `withdrawn` clôturent l'offre.
 - `interviews[].status` : `to_prepare` (à venir), `done`, `cancelled`.
 - `meetings[].status` : `to_see`, `planned`, `seen`, `cancelled`.
 - `source` : `linkedin`, `wttj`, `cabinet`, `manual`, `network`, `other`.

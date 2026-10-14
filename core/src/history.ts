@@ -316,7 +316,8 @@ async function upsertOffer(
   label: string,
 ): Promise<Offer> {
   const key = keyOf(p);
-  const status: OfferStatus = FINISHED.includes(p.stage) ? "closed" : "applied";
+  // « À postuler » : l'offre est retenue en candidature directe, rien n'est encore envoyé.
+  const status: OfferStatus = FINISHED.includes(p.stage) ? "closed" : p.stage === "to_apply" ? "validated" : "applied";
   const found = await findOrCreateCompany(store, p.company, companies);
   const company = await fillCompanyInfo(store, found, p.company_info);
   companies[companies.indexOf(found)] = company;
@@ -330,6 +331,7 @@ async function upsertOffer(
     description: p.description,
     source_detail: p.source_detail,
     status,
+    approach: p.stage === "to_apply" ? "direct" : undefined,
   });
   const existing = findOffer(offers, companies, p);
   const r = await upsert(
