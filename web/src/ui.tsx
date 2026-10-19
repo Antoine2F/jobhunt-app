@@ -89,3 +89,39 @@ export function Select({
     </label>
   );
 }
+
+/** Ton d'un point du résumé de fit : « + » positif, « ~ » moyen, « - » négatif. */
+function tone(line: string): { cls: string; text: string } {
+  const m = line.match(/^\s*([+~\-–−])\s*(.*)$/);
+  if (!m) return { cls: "", text: line.trim() };
+  const cls = m[1] === "+" ? "fit-plus" : m[1] === "~" ? "fit-mid" : "fit-minus";
+  return { cls, text: m[2] };
+}
+
+/**
+ * Note et résumé du fit côte à côte. Le résumé est écrit par la veille, un point
+ * par ligne : « + Head of Product en scale-up », « ~ Télétravail non précisé »,
+ * « - 70 k€ fixe, sous le minimum ». Un ancien résumé sans signe reste neutre.
+ */
+export function Fit({ score, reason }: { score?: number | null; reason?: string | null }) {
+  if ((score === null || score === undefined) && !reason) return null;
+  const lines = (reason ?? "")
+    .split(/\n|(?:\s+[;|]\s+)/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map(tone);
+  return (
+    <div className="fit">
+      <Score value={score} />
+      {lines.length > 0 && (
+        <ul>
+          {lines.map((l, i) => (
+            <li key={i} className={l.cls}>
+              {l.text}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

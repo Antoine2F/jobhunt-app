@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import type { Company, Interview, Meeting, Offer, Person, Process, SuggestionResult } from "@jobhunt/core";
 import type { PipelineState } from "@jobhunt/core/pipeline";
 // Seul le schéma est importé en valeur : le reste du noyau dépend de Node.
@@ -7,7 +7,7 @@ import { COMPANY_SECTORS } from "@jobhunt/core/schema";
 import { api, useApi } from "../api";
 import { companyFacts, fmtDate, fromLocalInput, MEETING_STATUS, SOURCE, toLocalInput } from "../labels";
 import { LeadSteps, Pipeline, stateLabel, type Move } from "../Pipeline";
-import { formData, Loading, Score, useToast } from "../ui";
+import { Fit, formData, Loading, useToast } from "../ui";
 
 interface Detail {
   offer: Offer;
@@ -21,6 +21,7 @@ interface Detail {
 
 export function OfferDetailPage() {
   const { id } = useParams();
+  const back = (useLocation().state as { from?: string } | null)?.from ?? "/offres";
   const { data, error, loading, reload } = useApi<Detail>(`/offers/${id}/detail`);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
@@ -52,7 +53,7 @@ export function OfferDetailPage() {
   async function remove() {
     if (!confirm("Supprimer cette offre, son processus et ses entretiens ?")) return;
     await api(`/offers/${offer.id}`, { method: "DELETE" });
-    navigate("/offres");
+    navigate(back);
   }
   const network = offer.approach === "network";
   const applying = ["to_apply", "applied"].includes(state.step) || !!offer.cover_letter_url || !!offer.cv_url;
@@ -60,7 +61,8 @@ export function OfferDetailPage() {
   return (
     <>
       <p className="small">
-        <Link to="/offres">← Offres</Link>
+        {/* Retour à la liste avec le même onglet et la même recherche. */}
+        <Link to={back}>← Offres</Link>
       </p>
       <div className="spread">
         <div>
@@ -73,7 +75,6 @@ export function OfferDetailPage() {
             {offer.salary && ` · ${offer.salary}`}
           </div>
         </div>
-        <Score value={offer.score} />
       </div>
 
       <div className="row small" style={{ margin: "12px 0" }}>
@@ -116,7 +117,11 @@ export function OfferDetailPage() {
 
       {applying && <ApplyKit offer={offer} company={company} onSaved={reload} />}
 
-      {offer.score_reason && <p className="card small">{offer.score_reason}</p>}
+      {(offer.score != null || offer.score_reason) && (
+        <div className="card">
+          <Fit score={offer.score} reason={offer.score_reason} />
+        </div>
+      )}
       {offer.description && <p>{offer.description}</p>}
 
       {company && <CompanyCard company={company} onSaved={reload} />}

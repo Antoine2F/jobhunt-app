@@ -522,3 +522,45 @@ button.link {
 button.link.danger {
   color: var(--danger);
 }
+
+/* --- Note et résumé du fit */
+.fit {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+.fit ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.fit li + li {
+  margin-top: 2px;
+}
+.fit li.fit-plus {
+  color: var(--ok);
+}
+.fit li.fit-mid {
+  color: var(--warn);
+}
+.fit li.fit-minus {
+  color: var(--danger);
+}
+.fit li.fit-plus::before {
+  content: "+ ";
+  font-weight: 700;
+}
+.fit li.fit-mid::before {
+  content: "~ ";
+  font-weight: 700;
+}
+.fit li.fit-minus::before {
+  content: "− ";
+  font-weight: 700;
+}
+.tabs .count {
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
