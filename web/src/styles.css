@@ -560,6 +560,32 @@ button.link.danger {
   content: "− ";
   font-weight: 700;
 }
+.fit li.fit-info::before {
+  content: "• ";
+  font-weight: 700;
+}
+.fit-details {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+.fit-details li {
+  padding: 6px 0 6px 10px;
+  border-left: 3px solid var(--border);
+}
+.fit-details li + li {
+  margin-top: 4px;
+}
+.fit-details li.fit-plus {
+  border-left-color: var(--ok);
+}
+.fit-details li.fit-mid {
+  border-left-color: var(--warn);
+}
+.fit-details li.fit-minus {
+  border-left-color: var(--danger);
+}
 .tabs .count {
   opacity: 0.75;
   font-variant-numeric: tabular-nums;

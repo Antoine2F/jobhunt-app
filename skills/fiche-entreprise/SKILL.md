@@ -18,6 +18,7 @@ Tu tournes dans Claude sur mon abonnement : **aucune API payante n'est appelée*
 |---|---|---|
 | `description` | Ce que fait l'entreprise, pour qui, 1 ou 2 phrases factuelles | « Logiciel de planification financière pour les directions financières des ETI et grands groupes. » |
 | `sector` | **Une** valeur de la liste ci-dessous, écrite à l'identique | `Software / SaaS` |
+| `market` | Clients : `B2B`, `B2C` ou `B2B2C` (à qui l'entreprise vend) | `B2B` |
 | `size` | Effectif, avec l'année si la source est datée | « 450 salariés (2026) » |
 | `headquarters` | Siège : ville, pays | « Paris, France » |
 | `dev_offices` | Où travaillent les équipes produit et tech (villes, pays) | « Paris, Lisbonne, Bangalore » |
@@ -51,7 +52,7 @@ Pour `founders_nationality` : biographies des fondateurs (page « Équipe », Li
    ```bash
    curl -sS "$APP_URL/api/ingest/companies" -H "x-ingest-key: $INGEST_KEY"
    ```
-   → `{"companies": [{"id", "name", "description", "sector", "size", "headquarters", "dev_offices", "founders_nationality", "capital_origin", "funding", "website", "offers"}]}`
+   → `{"companies": [{"id", "name", "description", "sector", "market", "size", "headquarters", "dev_offices", "founders_nationality", "capital_origin", "funding", "website", "offers"}]}`
    Garde l'entreprise que j'ai nommée, ou sinon celles qui ont au moins une offre (`offers > 0`) et au moins un champ vide. Au-delà de 10, traite les 10 premières et propose de continuer.
    Si l'appli renvoie 500, 502 ou 504 au premier appel, la base gratuite redémarre : attends 60 secondes et réessaie.
 3. **Cherche** les champs vides de chaque entreprise (pas ceux déjà remplis).

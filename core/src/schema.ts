@@ -93,6 +93,7 @@ export const TABLES = {
     website: { type: "string", max: 400 },
     description: { type: "text" }, // ce que fait l'entreprise
     funding: { type: "string", max: 200 }, // stade, dernière levée
+    market: { type: "string", max: 20 }, // B2B, B2C ou B2B2C
     headquarters: { type: "string", max: 200 }, // ville et pays du siège
     dev_offices: { type: "string", max: 400 }, // où sont les équipes produit / tech
     founders_nationality: { type: "string", max: 200 },
@@ -115,7 +116,8 @@ export const TABLES = {
     status: { type: "string", enum: OFFER_STATUSES, required: true, max: 20 },
     approach: { type: "string", enum: OFFER_APPROACHES, max: 20 },
     score: { type: "int" },
-    score_reason: { type: "text" },
+    score_reason: { type: "text" }, // résumé du fit, un point par ligne (+ ~ - •)
+    score_details: { type: "text" }, // détail de la note, critère par critère
     decision_note: { type: "text" },
     received_at: { type: "datetime" },
     cover_letter_url: { type: "string", max: 1000 }, // lettre de motivation (Google Drive)

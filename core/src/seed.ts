@@ -31,12 +31,13 @@ export function seedDemo(store: MemoryStore) {
     {
       ...meta("o-3"), company_id: "c-3", title: "Manager transformation IA", location: "Lyon", source: "cabinet",
       source_detail: "Cabinet exemple", url_key: "title:conseil fictif|manager transformation ia", status: "proposed",
-      salary: "70 k€", score: 18, score_reason: "- 70 k€ fixe : sous le minimum de 80 k€\n- Cabinet de conseil\n+ Sujet IA pertinent\n~ Lyon : hors Île-de-France", received_at: iso(-1),
+      salary: "70 k€", score: 18, score_reason: "- 70 k€ fixe : sous le minimum de 80 k€\n+ Française\n• B2B : conseil aux entreprises\n- Cabinet de conseil\n~ Lyon : hors Île-de-France", received_at: iso(-1),
     },
     {
       ...meta("o-4"), company_id: "c-1", title: "Chief Data Officer adjoint", location: "La Défense", source: "linkedin",
       url: "https://www.linkedin.com/jobs/view/1000000004", url_key: "linkedin:1000000004", status: "proposed", score: 79,
-      score_reason: "~ Salaire non publié\n+ Poste de direction data et IA\n+ Même entreprise qu'un processus en cours\n~ Poste plus transverse que produit", received_at: iso(0, 7),
+      score_reason: "~ no €\n+ Française (La Défense)\n• B2C : énergéticien grand public et entreprises\n+ Poste de direction data et IA\n~ Poste plus transverse que produit",
+      score_details: "~ Rémunération : non publiée dans l'annonce ; niveau direction, probablement dans la cible\n+ Poste et niveau : adjoint au CDO, périmètre data et IA groupe\n+ Entreprise : française, cotée, siège à La Défense\n• Clients : B2C et B2B (énergie)\n~ Secteur : énergie, hors secteurs prioritaires mais pas exclu\n- Taille et stade : grand groupe (5000+), pas une scale-up\n+ Lieu et télétravail : La Défense, 30 min de Viroflay\n~ Contrat : non précisé\n- Culture : gros process probables en grand groupe\n• Calcul : 79, pas de plafond appliqué (salaire non publié)", received_at: iso(0, 7),
     },
     {
       ...meta("o-5"), company_id: "c-2", title: "Head of Product Data", location: "Paris", source: "linkedin",

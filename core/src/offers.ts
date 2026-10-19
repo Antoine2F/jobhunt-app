@@ -153,6 +153,7 @@ const OFFER_FIELDS: (keyof NewRow<"offers">)[] = [
   "description",
   "score",
   "score_reason",
+  "score_details",
   "decision_note",
   "approach",
   "cover_letter_url",

@@ -7,7 +7,7 @@ import { COMPANY_SECTORS } from "@jobhunt/core/schema";
 import { api, useApi } from "../api";
 import { companyFacts, fmtDate, fromLocalInput, MEETING_STATUS, SOURCE, toLocalInput } from "../labels";
 import { LeadSteps, Pipeline, stateLabel, type Move } from "../Pipeline";
-import { Fit, formData, Loading, useToast } from "../ui";
+import { Fit, FitDetails, formData, Loading, useToast } from "../ui";
 
 interface Detail {
   offer: Offer;
@@ -117,10 +117,25 @@ export function OfferDetailPage() {
 
       {applying && <ApplyKit offer={offer} company={company} onSaved={reload} />}
 
-      {(offer.score != null || offer.score_reason) && (
-        <div className="card">
-          <Fit score={offer.score} reason={offer.score_reason} />
-        </div>
+      {(offer.score != null || offer.score_reason || offer.score_details) && (
+        <>
+          <h2>Note</h2>
+          <div className="card">
+            <Fit score={offer.score} reason={offer.score_reason} />
+            {offer.score_details ? (
+              <details open style={{ marginTop: 10 }}>
+                <summary className="small" style={{ cursor: "pointer" }}>
+                  Détail, critère par critère
+                </summary>
+                <FitDetails details={offer.score_details} />
+              </details>
+            ) : (
+              <p className="small muted" style={{ margin: "8px 0 0" }}>
+                Pas encore de détail : dis « renote les offres » au skill veille-offres.
+              </p>
+            )}
+          </div>
+        </>
       )}
       {offer.description && <p>{offer.description}</p>}
 
@@ -270,6 +285,15 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
                   <option key={s} value={s} />
                 ))}
               </datalist>
+            </label>
+            <label>
+              Clients
+              <select name="market" defaultValue={company.market ?? ""}>
+                <option value="">—</option>
+                <option value="B2B">B2B</option>
+                <option value="B2C">B2C</option>
+                <option value="B2B2C">B2B2C</option>
+              </select>
             </label>
             <label>
               Effectif

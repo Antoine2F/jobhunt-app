@@ -90,12 +90,48 @@ export function Select({
   );
 }
 
-/** Ton d'un point du résumé de fit : « + » positif, « ~ » moyen, « - » négatif. */
+/** Ton d'un point de fit : « + » positif, « ~ » moyen, « - » négatif, « • » simple information. */
 function tone(line: string): { cls: string; text: string } {
-  const m = line.match(/^\s*([+~\-–−])\s*(.*)$/);
+  const m = line.match(/^\s*([+~\-–−•=])\s*(.*)$/);
   if (!m) return { cls: "", text: line.trim() };
-  const cls = m[1] === "+" ? "fit-plus" : m[1] === "~" ? "fit-mid" : "fit-minus";
+  const cls = m[1] === "+" ? "fit-plus" : m[1] === "~" ? "fit-mid" : m[1] === "•" || m[1] === "=" ? "fit-info" : "fit-minus";
   return { cls, text: m[2] };
+}
+
+/** Un point par ligne ; les anciens résumés sur une ligne se coupent aussi aux « ; ». */
+function lines(text?: string | null, oneLine = /\n|(?:\s+[;|]\s+)/) {
+  return (text ?? "")
+    .split(oneLine)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map(tone);
+}
+
+/** « Critère : explication » : le critère en gras. */
+function Point({ text }: { text: string }) {
+  const i = text.indexOf(" : ");
+  if (i < 1 || i > 40) return <>{text}</>;
+  return (
+    <>
+      <b>{text.slice(0, i)}</b>
+      {text.slice(i)}
+    </>
+  );
+}
+
+/** Détail de la note, critère par critère (fiche de l'offre). */
+export function FitDetails({ details }: { details?: string | null }) {
+  const items = lines(details, /\n/);
+  if (!items.length) return null;
+  return (
+    <ul className="fit-details">
+      {items.map((l, i) => (
+        <li key={i} className={l.cls}>
+          <Point text={l.text} />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /**
@@ -105,17 +141,13 @@ function tone(line: string): { cls: string; text: string } {
  */
 export function Fit({ score, reason }: { score?: number | null; reason?: string | null }) {
   if ((score === null || score === undefined) && !reason) return null;
-  const lines = (reason ?? "")
-    .split(/\n|(?:\s+[;|]\s+)/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map(tone);
+  const items = lines(reason);
   return (
     <div className="fit">
       <Score value={score} />
-      {lines.length > 0 && (
+      {items.length > 0 && (
         <ul>
-          {lines.map((l, i) => (
+          {items.map((l, i) => (
             <li key={i} className={l.cls}>
               {l.text}
             </li>

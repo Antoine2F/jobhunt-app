@@ -13,6 +13,7 @@ IF COL_LENGTH(N'dbo.[companies]', N'size') IS NULL ALTER TABLE dbo.[companies] A
 IF COL_LENGTH(N'dbo.[companies]', N'website') IS NULL ALTER TABLE dbo.[companies] ADD [website] NVARCHAR(400) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'description') IS NULL ALTER TABLE dbo.[companies] ADD [description] NVARCHAR(MAX) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'funding') IS NULL ALTER TABLE dbo.[companies] ADD [funding] NVARCHAR(200) NULL;
+IF COL_LENGTH(N'dbo.[companies]', N'market') IS NULL ALTER TABLE dbo.[companies] ADD [market] NVARCHAR(20) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'headquarters') IS NULL ALTER TABLE dbo.[companies] ADD [headquarters] NVARCHAR(200) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'dev_offices') IS NULL ALTER TABLE dbo.[companies] ADD [dev_offices] NVARCHAR(400) NULL;
 IF COL_LENGTH(N'dbo.[companies]', N'founders_nationality') IS NULL ALTER TABLE dbo.[companies] ADD [founders_nationality] NVARCHAR(200) NULL;
@@ -42,6 +43,7 @@ IF COL_LENGTH(N'dbo.[offers]', N'status') IS NULL ALTER TABLE dbo.[offers] ADD [
 IF COL_LENGTH(N'dbo.[offers]', N'approach') IS NULL ALTER TABLE dbo.[offers] ADD [approach] NVARCHAR(20) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'score') IS NULL ALTER TABLE dbo.[offers] ADD [score] INT NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'score_reason') IS NULL ALTER TABLE dbo.[offers] ADD [score_reason] NVARCHAR(MAX) NULL;
+IF COL_LENGTH(N'dbo.[offers]', N'score_details') IS NULL ALTER TABLE dbo.[offers] ADD [score_details] NVARCHAR(MAX) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'decision_note') IS NULL ALTER TABLE dbo.[offers] ADD [decision_note] NVARCHAR(MAX) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'received_at') IS NULL ALTER TABLE dbo.[offers] ADD [received_at] DATETIMEOFFSET NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'cover_letter_url') IS NULL ALTER TABLE dbo.[offers] ADD [cover_letter_url] NVARCHAR(1000) NULL;
