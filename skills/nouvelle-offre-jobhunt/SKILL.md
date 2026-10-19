@@ -41,7 +41,9 @@ Le payload de l'offre déjà extrait (dans la conversation ou fourni en argument
 | `source` | non | `linkedin`, `wttj`, `cabinet`, `manual`, `network`, `other` (défaut : `manual`) |
 | `source_detail` | non | ex. « Annonce LinkedIn », « Envoyée par X » |
 | `company_info` | non | voir le skill `fiche-entreprise` : `description`, `sector`, `size`, `headquarters`, `dev_offices`, `founders_nationality`, `capital_origin`, `funding`, `website` |
-| `notes` | non | synthèse de l'analyse : score, points forts, points de vigilance |
+| `score` | non | note de fit de 0 à 100, selon la grille de notation du skill `veille-offres` (rémunération d'abord : cible 100 k€ fixe + 50 k€ variable, minimum 80 k€ fixe) |
+| `score_reason` | non | résumé du fit, un point par ligne préfixé `+ ` (vert), `~ ` (orange) ou `- ` (rouge) |
+| `notes` | non | autres éléments de l'analyse |
 
 Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends. N'invente rien : un champ inconnu est omis, jamais envoyé à `null`.
 
@@ -64,7 +66,8 @@ Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends
          "company_info": { "description": "Paiement fractionné pour les commerçants", "sector": "Fintech / Banque / Assurance",
                           "size": "400 salariés", "headquarters": "Paris, France", "founders_nationality": "Française" },
          "stage": "to_apply",
-         "notes": "Score 78/100. Points forts : … Vigilance : …"
+         "score": 78,
+         "score_reason": "~ Salaire non publié\n+ Lead PM en scale-up fintech produit\n+ Paris, télétravail 2 j/sem.\n- Process de recrutement long annoncé"
        }
      ]
    }

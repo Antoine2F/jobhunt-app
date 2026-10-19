@@ -58,8 +58,7 @@ Ajoute ici les cabinets dont je reçois les alertes.
    - `title`, `company`, `location`, `contract`, `salary` (null si absent) ;
    - `url` : lien direct vers l'offre (tu peux retirer les paramètres de suivi) ;
    - `description` : 2 ou 3 phrases factuelles, d'après l'e-mail uniquement ;
-   - `score` de 0 à 100 d'adéquation avec mon profil ; pénalise fortement ce qui est dans « Je ne recherche pas » ou « Je n'aime pas ». Une offre qui viole un « Point non négociable » (ex. ESN, salaire publié sous le minimum, hors de la zone géographique) ne dépasse pas 20 ;
-   - `score_reason` : une ligne qui justifie le score.
+   - `score` et `score_reason` selon la **grille de notation** ci-dessous.
    N'invente aucune offre ni aucune information. Ignore publicités, articles et liens de navigation.
 
 5 bis. **Complète les offres dont le score est d'au moins 50**, pour que je puisse décider sans chercher (les autres, inutile) :
@@ -90,6 +89,27 @@ Ajoute ici les cabinets dont je reçois les alertes.
 
 7. **Résume** en quelques lignes : e-mails lus, offres créées et doublons (réponses `{"created": n, "duplicates": m}`), les 3 meilleures offres avec score et lien `$APP_URL/offres`.
 
+## Grille de notation
+
+Seule référence pour noter une offre (veille, veille LinkedIn, maj, nouvelle offre). Elle applique `profil/preferences.md` ; si ce fichier change, il prime.
+
+**Rémunération** (cible : 100 k€ fixe + 50 k€ variable ; minimum 80 k€ fixe) — c'est le critère qui pèse le plus :
+- fixe publié ≥ 100 k€ (ou total ≥ 150 k€) : point positif ;
+- fixe publié entre 80 et 100 k€ : point moyen, note **plafonnée à 65** ;
+- fixe publié sous 80 k€ (ex. 70 k€) : point non négociable, note **plafonnée à 20** ;
+- non publiée : point moyen « salaire non publié » ; n'invente jamais de chiffre. Si le niveau du poste le laisse penser (ex. PM junior, alternance, stage), dis-le en point négatif et note bas.
+
+**Le reste**, à partir de `preferences.md` : intitulé et niveau (Head of Product, Senior PM…), secteur, taille (scale-up), lieu (Île-de-France, proche de Viroflay), télétravail, contrat (CDI), « J'aime » / « Je n'aime pas ». Une offre qui viole un autre « Point non négociable » (ESN…) ne dépasse pas 20.
+
+**Repères** : 80 et plus = à regarder en premier (tout est aligné, salaire compris) ; 50 à 79 = intéressante avec réserves ; moins de 50 = peu probable.
+
+**`score_reason`** : 3 à 6 points, **un par ligne** (séparés par `\n` dans le JSON), chacun préfixé :
+- `+ ` point positif (affiché en vert) ;
+- `~ ` point moyen ou inconnu (orange) ;
+- `- ` point négatif (rouge).
+
+Commence par la rémunération. Exemple : `"- 70 k€ fixe : sous le minimum de 80 k€\n+ Head of Product en scale-up SaaS\n~ Télétravail non précisé\n+ Paris 9e, 35 min de Viroflay"`.
+
 ## Re-noter les offres déjà remontées
 
 Quand je dis « renote les offres » (par exemple après une mise à jour de mon profil), ne relis pas Gmail : repars des offres déjà dans l'appli.
@@ -103,7 +123,7 @@ Quand je dis « renote les offres » (par exemple après une mise à jour de mon
 3. Pour chaque offre, recalcule `score` et `score_reason` avec les mêmes règles que l'étape 5, puis envoie-les :
    ```bash
    curl -sS -X PATCH "$APP_URL/api/ingest/offers/<id>" -H "content-type: application/json" \
-     -H "x-ingest-key: $INGEST_KEY" -d '{"score": 15, "score_reason": "ESN : point non négociable"}'
+     -H "x-ingest-key: $INGEST_KEY" -d '{"score": 15, "score_reason": "- ESN : point non négociable\n+ Poste de Head of Product"}'
    ```
    Pour une offre d'au moins 50 sans `location` précise ou `remote`, ajoute ces champs au même `PATCH` s'ils sont sur la page de l'offre ; et complète les champs vides des entreprises avec le skill `fiche-entreprise`, comme à l'étape 5 bis :
    ```bash

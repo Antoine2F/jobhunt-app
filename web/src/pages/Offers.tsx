@@ -6,7 +6,7 @@ import { api, useApi } from "../api";
 import { companyFacts, relDays, SOURCE } from "../labels";
 import { nextMove, StateChip, type Move } from "../Pipeline";
 import { isFresh } from "./Home";
-import { formData, Loading, Score, useToast } from "../ui";
+import { Fit, formData, Loading, useToast } from "../ui";
 
 type Tab = Category | "all";
 const LABEL = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.label])) as Record<Category, string>;
@@ -20,7 +20,15 @@ const QUICK_EXIT: Partial<Record<Category, { exit: "rejected" | "not_applying"; 
 export function OffersPage() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") as Tab) || "new";
-  const [query, setQuery] = useState("");
+  const query = params.get("q") ?? "";
+  // Le filtre est dans l'adresse : en revenant d'une offre, on retrouve le même onglet et la même recherche.
+  const setFilter = (next: { tab?: Tab; q?: string }) => {
+    const p: Record<string, string> = { tab: next.tab ?? tab };
+    const q = next.q ?? query;
+    if (q) p.q = q;
+    setParams(p, { replace: true });
+  };
+  const backTo = `/offres?${params.toString()}`;
   const offers = useApi<Offer[]>("/offers");
   const companies = useApi<Company[]>("/companies");
   const processes = useApi<Process[]>("/processes");
@@ -76,7 +84,7 @@ export function OffersPage() {
           {duplicates.data!.map((g, i) => (
             <span key={i}>
               {i > 0 && " · "}
-              <Link to={`/offres/${g[0].id}`}>
+              <Link to={`/offres/${g[0].id}`} state={{ from: backTo }}>
                 {g[0].title} ({g.length})
               </Link>
             </span>
@@ -92,12 +100,12 @@ export function OffersPage() {
           ...(tab !== "all" && !OPEN_CATEGORIES.includes(tab) ? [{ key: tab, label: LABEL[tab] }] : []),
           { key: "all" as Tab, label: "Toutes" },
         ].map((t) => (
-          <button key={t.key} className={t.key === tab ? "active" : ""} onClick={() => setParams({ tab: t.key })} role="tab" aria-selected={t.key === tab}>
-            {t.label} <span className="muted">{offers.data ? count(t.key) : ""}</span>
+          <button key={t.key} className={t.key === tab ? "active" : ""} onClick={() => setFilter({ tab: t.key })} role="tab" aria-selected={t.key === tab}>
+            {t.label} <span className="count">{offers.data ? count(t.key) : ""}</span>
           </button>
         ))}
       </div>
-      <input type="search" placeholder="Filtrer par intitulé, entreprise, lieu…" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <input type="search" placeholder="Filtrer par intitulé, entreprise, lieu…" value={query} onChange={(e) => setFilter({ q: e.target.value })} />
 
       <div className="stack" style={{ marginTop: 12 }}>
         <Loading error={offers.error} loading={offers.loading && !offers.data} />
@@ -109,25 +117,26 @@ export function OffersPage() {
           const quick = category === "new" || category === "interesting" || category === "to_apply";
           return (
             <div key={o.id} className="card">
-              <div className="spread">
-                <div>
-                  <Link to={`/offres/${o.id}`}>
-                    <h3>
-                      {isFresh(o.created_at) && <span className="new-dot" title="Arrivée il y a moins de 48 h" />}
-                      {o.title}
-                    </h3>
-                  </Link>
-                  <div className="muted">
-                    {company?.name || "Entreprise inconnue"}
-                    {o.location && ` · ${o.location}`}
-                    {o.remote && ` · ${o.remote}`}
-                  </div>
-                  {facts && <div className="small muted">{facts}</div>}
-                </div>
-                <Score value={o.score} />
+              <Link to={`/offres/${o.id}`} state={{ from: backTo }}>
+                <h3>
+                  {isFresh(o.created_at) && <span className="new-dot" title="Arrivée il y a moins de 48 h" />}
+                  {o.title}
+                </h3>
+              </Link>
+              <div className="muted">
+                {company?.name || "Entreprise inconnue"}
+                {o.location && ` · ${o.location}`}
+                {o.remote && ` · ${o.remote}`}
+                {o.salary && ` · ${o.salary}`}
               </div>
+              {facts && <div className="small muted">{facts}</div>}
+              {o.url && (
+                <a className="small" href={o.url} target="_blank" rel="noreferrer noopener">
+                  Voir l'annonce ↗
+                </a>
+              )}
               {company?.description && <p className="small clamp" style={{ margin: "6px 0 0" }}>{company.description}</p>}
-              {o.score_reason && <p className="small muted" style={{ margin: "6px 0 0" }}>{o.score_reason}</p>}
+              <Fit score={o.score} reason={o.score_reason} />
               <div className="row small" style={{ marginTop: 8 }}>
                 <StateChip state={state} />
                 {o.approach === "network" && <span className="chip ok">Réseau activé</span>}

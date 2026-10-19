@@ -167,6 +167,9 @@ export interface ImportProcess {
   description?: string | null;
   source?: OfferSource | null;
   source_detail?: string | null;
+  /** Note de fit (0-100) et son résumé, un point par ligne préfixé « + », « ~ » ou « - ». */
+  score?: number | null;
+  score_reason?: string | null;
   /** Date de candidature (devient la date de réception de l'offre). */
   applied_at?: string | null;
   company_info?: CompanyInfo | null;
@@ -346,6 +349,8 @@ async function upsertOffer(
     url: p.url,
     description: p.description,
     source_detail: p.source_detail,
+    score: p.score,
+    score_reason: p.score_reason,
     status,
     approach: p.stage === "to_apply" ? "direct" : undefined,
   });

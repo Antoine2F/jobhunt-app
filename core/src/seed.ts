@@ -31,12 +31,12 @@ export function seedDemo(store: MemoryStore) {
     {
       ...meta("o-3"), company_id: "c-3", title: "Manager transformation IA", location: "Lyon", source: "cabinet",
       source_detail: "Cabinet exemple", url_key: "title:conseil fictif|manager transformation ia", status: "proposed",
-      score: 58, score_reason: "Conseil (à éviter selon tes préférences), mais sujet IA pertinent", received_at: iso(-1),
+      salary: "70 k€", score: 18, score_reason: "- 70 k€ fixe : sous le minimum de 80 k€\n- Cabinet de conseil\n+ Sujet IA pertinent\n~ Lyon : hors Île-de-France", received_at: iso(-1),
     },
     {
       ...meta("o-4"), company_id: "c-1", title: "Chief Data Officer adjoint", location: "La Défense", source: "linkedin",
-      url_key: "linkedin:1000000004", status: "proposed", score: 79,
-      score_reason: "Même entreprise qu'un processus en cours ; poste plus transverse", received_at: iso(0, 7),
+      url: "https://www.linkedin.com/jobs/view/1000000004", url_key: "linkedin:1000000004", status: "proposed", score: 79,
+      score_reason: "~ Salaire non publié\n+ Poste de direction data et IA\n+ Même entreprise qu'un processus en cours\n~ Poste plus transverse que produit", received_at: iso(0, 7),
     },
     {
       ...meta("o-5"), company_id: "c-2", title: "Head of Product Data", location: "Paris", source: "linkedin",
