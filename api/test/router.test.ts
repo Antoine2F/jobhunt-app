@@ -26,7 +26,7 @@ describe("router", () => {
   it("sert l'accueil", async () => {
     const res = await handle(req("GET", "/home"), setup(), env);
     expect(res.status).toBe(200);
-    expect((res.body as { counts: { active_processes: number } }).counts.active_processes).toBe(2);
+    expect((res.body as { counts: { lead: number; waiting: number } }).counts).toMatchObject({ lead: 2, waiting: 1 });
   });
 
   it("CRUD générique avec validation", async () => {
@@ -42,16 +42,31 @@ describe("router", () => {
     expect((await handle(req("POST", "/ingested_messages", { message_id: "x" }), store, env)).status).toBe(405);
   });
 
-  it("valider puis candidater crée un processus", async () => {
+  it("fait avancer une offre étape par étape, ou s'arrêter", async () => {
     const store = setup();
-    await handle(req("POST", "/offers/o-3/decision", { decision: "validate" }), store, env);
-    const res = await handle(req("POST", "/offers/o-3/decision", { decision: "apply" }), store, env);
-    const body = res.body as { offer: { status: string }; process: { stage: string; offer_id: string } };
+    const move = (body: unknown) => handle(req("POST", "/offers/o-3/move", body), store, env);
+    await move({ step: "to_apply" });
+    const res = await move({ step: "applied" });
+    const body = res.body as { offer: { status: string }; process: { stage: string; offer_id: string }; state: { step: string } };
     expect(body.offer.status).toBe("applied");
     expect(body.process).toMatchObject({ stage: "applied", offer_id: "o-3" });
     // Idempotent : pas de second processus
-    await handle(req("POST", "/offers/o-3/decision", { decision: "apply" }), store, env);
+    await move({ step: "applied" });
     expect((await store.list("processes")).filter((p) => p.offer_id === "o-3")).toHaveLength(1);
+    expect(((await move({ exit: "no_answer" })).body as { state: unknown }).state).toEqual({ step: "applied", exit: "no_answer" });
+    expect((await move({ step: "nulle-part" })).status).toBe(400);
+    expect((await handle(req("POST", "/offers/inconnue/move", { step: "new" }), store, env)).status).toBe(404);
+  });
+
+  it("signale et fusionne les doublons", async () => {
+    const store = setup();
+    await store.update("offers", "o-4", { title: "Head of Data & IA (H/F)" });
+    const detail = (await handle(req("GET", "/offers/o-4/detail"), store, env)).body as { duplicates: { id: string }[] };
+    expect(detail.duplicates.map((d) => d.id)).toEqual(["o-1"]);
+    expect(((await handle(req("GET", "/offers/duplicates"), store, env)).body as unknown[]).length).toBe(1);
+    const res = await handle(req("POST", "/offers/o-1/merge", { from: "o-4" }), store, env);
+    expect(res.status).toBe(200);
+    expect(await store.get("offers", "o-4")).toBeNull();
   });
 
   it("supprimer une offre supprime son processus et ses entretiens", async () => {
@@ -83,11 +98,11 @@ describe("router", () => {
 });
 
 describe("router : ajout manuel et suivi de la veille", () => {
-  it("ajoute une offre validée sans appel à Claude", async () => {
+  it("ajoute une offre intéressante sans appel à Claude", async () => {
     const store = setup();
     const res = await handle(req("POST", "/offers/manual", { title: "CDO", company: "Exemple Énergie", url: "https://x.test/1" }), store, env);
     const body = res.body as { created: { status: string; company_id: string; source: string }[] };
-    expect(body.created[0]).toMatchObject({ status: "validated", company_id: "c-1", source: "manual" });
+    expect(body.created[0]).toMatchObject({ status: "interesting", company_id: "c-1", source: "manual" });
     expect((await handle(req("POST", "/offers/manual", { company: "X" }), store, env)).status).toBe(400);
   });
 
@@ -230,7 +245,7 @@ describe("router : revue des offres et reprise de l'historique", () => {
     const again = (await call({ processes: [{ ...offer, url: "https://jobs.lever.co/alma/abc" }] })).body as { counts: Record<string, Record<string, number>> };
     expect(again.counts.offer.created + again.counts.process.created).toBe(0);
 
-    const res = await handle(req("POST", `/offers/${o.id}/decision`, { decision: "apply" }), store, env);
+    const res = await handle(req("POST", `/offers/${o.id}/move`, { step: "applied" }), store, env);
     expect((res.body as { process: { stage: string } }).process.stage).toBe("applied");
     expect((await store.list("processes")).filter((p) => p.offer_id === o.id)).toHaveLength(1);
   });
@@ -254,14 +269,22 @@ describe("router : revue des offres et reprise de l'historique", () => {
 describe("router : choix de l'approche et fiches entreprise", () => {
   const headers = { "x-ingest-key": "secret-key" };
 
-  it("valider, c'est choisir réseau d'abord ou candidature directe", async () => {
+  it("la démarche réseau s'active en parallèle, sans changer l'étape", async () => {
     const store = setup();
-    const res = await handle(req("POST", "/offers/o-4/decision", { decision: "validate", approach: "network" }), store, env);
-    expect((res.body as { offer: { status: string; approach: string } }).offer).toMatchObject({ status: "validated", approach: "network" });
-    // Changer d'avis garde l'offre validée.
-    const res2 = await handle(req("POST", "/offers/o-4/decision", { decision: "validate", approach: "direct" }), store, env);
-    expect((res2.body as { offer: { approach: string } }).offer.approach).toBe("direct");
-    expect((await handle(req("POST", "/offers/o-4/decision", { decision: "validate", approach: "piston" }), store, env)).status).toBe(400);
+    const res = await handle(req("PATCH", "/offers/o-4", { approach: "network" }), store, env);
+    expect(res.body).toMatchObject({ status: "proposed", approach: "network" });
+    expect(((await handle(req("PATCH", "/offers/o-4", { approach: null }), store, env)).body as { approach: unknown }).approach).toBeNull();
+    expect((await handle(req("PATCH", "/offers/o-4", { approach: "piston" }), store, env)).status).toBe(400);
+  });
+
+  it("donne l'offre et le profil aux skills, et range les liens du dossier de candidature", async () => {
+    const store = setup();
+    const call = (method: string, path: string, body: unknown = null) => handle(req(method, path, body, { user: null, headers }), store, env);
+    const got = (await call("GET", "/ingest/offers/o-1")).body as { offer: { title: string }; company: { name: string } };
+    expect(got).toMatchObject({ offer: { title: "Head of Data & IA" }, company: { name: "Exemple Énergie" } });
+    await call("PATCH", "/ingest/offers/o-1", { cover_letter_url: "https://docs.google.com/document/d/abc" });
+    expect((await store.get("offers", "o-1"))!.cover_letter_url).toBe("https://docs.google.com/document/d/abc");
+    expect((await call("GET", "/ingest/offers/inconnue")).status).toBe(404);
   });
 
   it("la veille complète l'entreprise sans écraser ce qui est saisi", async () => {

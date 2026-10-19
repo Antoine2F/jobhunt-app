@@ -3,8 +3,8 @@
 Mon outil de pilotage de recherche d'emploi : offres et processus, entretiens, démarches réseau, veille automatique des offres.
 
 - **Site web installable sur Android** (PWA : menu Chrome > « Ajouter à l'écran d'accueil », sans Play Store).
-- **Accueil** : ce qui est en cours à date, échéances des 14 prochains jours, offres à valider.
-- **Offres** : boîte de validation (offres remontées par la veille, notées par Claude), ajout manuel par lien ou texte, processus, entretiens.
+- **Accueil** : nouvelles offres, offres intéressantes, à postuler, candidatures en attente et pistes ; échéances des 14 prochains jours ; rencontres réseau à part.
+- **Offres** : un fil d'étapes par offre (de « nouvelle » à « acceptée », avec les sorties), aide à la candidature (lettre et CV dans Google Drive), entretiens, doublons fusionnables.
 - **Réseau** : personnes, rencontres à faire / faites et ce qui en est sorti, « qui présente qui ».
 - **Suggestions de contacts** pour chaque offre : personnes de l'entreprise, anciens, chemins d'introduction, recherche LinkedIn préremplie.
 - **Profil** : lecture de la base de connaissance (dépôt `jobhunt-knowledge`, format OKF).
@@ -19,7 +19,7 @@ api/      API HTTP : Azure Functions (fonctions gérées par Static Web Apps) + 
 web/      interface React (Vite), PWA
 db/       schéma SQL généré (npx tsx scripts/gen-schema.ts)
 infra/    Bicep + script de déploiement Azure
-skills/   skills Claude Desktop : veille des alertes e-mail (tâche planifiée), veille LinkedIn (computer use), reprise de l'historique, ajout d'une offre analysée, fiche entreprise
+skills/   skills Claude Desktop : veille des alertes e-mail (tâche planifiée), veille LinkedIn (computer use), reprise de l'historique, ajout d'une offre analysée, fiche entreprise, dossier de candidature
 ```
 
 | Brique | Service | Coût attendu |
@@ -74,12 +74,18 @@ L'appli est protégée par la connexion GitHub de Static Web Apps, et l'API n'ac
 
 ## Parcours d'une offre
 
-1. **À valider** : remontée par la veille, notée sur 100, avec ce que fait l'entreprise, son effectif, son financement, le lieu et le télétravail. Tu la **rejettes**, ou tu la valides en choisissant comment y aller.
-2. **Réseau d'abord** : tu cherches quelqu'un qui peut te recommander. La page de l'offre met en avant les contacts de ton réseau liés à l'entreprise (y travaillent, y ont travaillé, peuvent te présenter) et des recherches LinkedIn préremplies. Un contact retenu devient une rencontre « à voir » liée à l'offre.
-   **À postuler** : candidature directe, le lien de l'annonce est en premier.
-3. **Candidature** : « J'ai candidaté » crée le processus (étapes, entretiens, prochaine action), ou fait passer à « Candidature envoyée » un processus « À postuler ».
+Chaque offre suit un seul fil d'étapes, affiché en haut de sa page :
 
-Une offre analysée dans une conversation Claude (process « nouvelle offre ») arrive directement en processus **À postuler** (`to_apply`) par le skill `nouvelle-offre-jobhunt` : une seule offre, dédupliquée par URL, sans passer par la boîte de validation.
+**Nouvelle › Intéressante › À postuler › Candidature envoyée › Entretien RH › Entretiens › Cas pratique › Dernier tour › Offre reçue › Acceptée**
+
+- Le bouton principal passe à l'étape suivante ; un clic sur une étape plus loin y va directement (« j'ai candidaté et j'ai eu l'entretien RH » = un clic sur « Entretien RH »).
+- Les sorties s'enregistrent à l'étape où elles arrivent : *pas intéressante*, *je ne postule pas*, *refusé* / *recalé*, *sans réponse*, *je me retire*. Un clic sur une étape rouvre l'offre (pour corriger une erreur).
+- L'accueil et la page Offres regroupent les offres en **nouvelles** (les dernières arrivées en tête), **intéressantes**, **à postuler**, **candidatures en attente** (pas encore de réponse) et **pistes** (l'entreprise a manifesté son intérêt : entretien RH ou plus loin).
+- **Réseau** : la démarche réseau (trouver quelqu'un qui recommande ou présente) s'active par offre, en parallèle de la candidature. Elle fait apparaître les contacts de ton réseau liés à l'entreprise et des recherches LinkedIn préremplies.
+- **Candidater** : à l'étape « À postuler », les boutons *Générer la lettre* et *Préparer le CV* ouvrent Claude avec la demande prête ; le skill `dossier-candidature` crée les documents dans Google Drive (`Recherche d'emploi/Candidatures/…`) et les relie à l'offre.
+- **Doublons** : une offre au même intitulé dans la même entreprise n'est plus créée par la veille ; les doublons déjà présents sont signalés et se fusionnent depuis la page de l'offre (entretiens et rencontres rattachés, étape la plus avancée gardée).
+
+Une offre analysée dans une conversation Claude (process « nouvelle offre ») arrive directement **À postuler** par le skill `nouvelle-offre-jobhunt`.
 
 Recherches LinkedIn par affinité : renseigne `NETWORK_AFFINITIES` dans les paramètres de la Static Web App (écoles et anciens employeurs séparés par des virgules, ex. `Polytechnique,Télécom Paris,Microsoft`) ; chaque offre propose alors « Polytechnique chez <entreprise> », etc.
 

@@ -4,11 +4,16 @@ import {
   applyIngest,
   buildHome,
   ConflictError,
+  findDuplicates,
   importHistory,
   knowledgeFromEnv,
   listCompaniesForReview,
   listOffersForReview,
+  mergeOffers,
+  moveOffer,
   parseConcept,
+  sameOffer,
+  stateOf,
   reviewCompany,
   reviewOffer,
   suggestForOffer,
@@ -18,6 +23,7 @@ import {
   type CompanyInfo,
   type ImportBundle,
   type IngestPayload,
+  type Move,
   type OfferReview,
   type Store,
   type TableName,
@@ -107,6 +113,21 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
       if (second === "offers" && !third && m === "GET") {
         return ok({ offers: await listOffersForReview(store, req.query.get("status")) });
       }
+      if (second === "offers" && third && m === "GET") {
+        const offer = (await listOffersForReview(store)).find((o) => o.id === third);
+        if (!offer) return err(404, "Offre introuvable");
+        const company = offer.company_id ? await store.get("companies", offer.company_id) : null;
+        return ok({ offer, company });
+      }
+      // Profil, stories… pour les skills lancés depuis le téléphone (sans clone local).
+      if (second === "knowledge" && m === "GET") {
+        const src = knowledgeFromEnv(env);
+        if (!src) return err(503, "Base de connaissance non configurée (KNOWLEDGE_REPO / KNOWLEDGE_TOKEN)");
+        const path = req.query.get("path") ?? "";
+        if (!path.endsWith(".md")) return ok({ entries: await src.list(path) });
+        const md = await src.read(path);
+        return md === null ? err(404, "Fiche introuvable") : ok({ path, markdown: md });
+      }
       if (second === "offers" && third && m === "PATCH") {
         const offer = await reviewOffer(store, third, (req.body ?? {}) as OfferReview);
         return offer ? ok({ offer }) : err(404, "Offre introuvable");
@@ -154,34 +175,29 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
 
     // --- Offres : actions métier
     if (first === "offers" && second === "manual" && m === "POST") {
-      // Offre ajoutée à la main : validée d'office, sans notation automatique.
+      // Offre ajoutée à la main : intéressante d'office, sans notation automatique.
       const o = (req.body ?? {}) as IngestPayload["offers"][number];
       if (!o.title?.trim()) return err(400, "Intitulé obligatoire");
-      const res = await applyIngest(store, { source: "manual", status: "validated", offers: [o] });
+      const res = await applyIngest(store, { source: "manual", status: "interesting", offers: [o] });
       return ok({ created: res.created, duplicates: res.duplicates });
     }
 
-    if (first === "offers" && second && third === "decision" && m === "POST") {
-      const { decision, note, approach } = (req.body ?? {}) as { decision?: string; note?: string; approach?: string };
-      const offer = await store.get("offers", second);
-      if (!offer) return err(404, "Offre introuvable");
-      const status = ({ validate: "validated", reject: "rejected", apply: "applied", close: "closed" } as const)[
-        decision as "validate" | "reject" | "apply" | "close"
-      ];
-      if (!status) return err(400, "decision : validate | reject | apply | close");
-      // Valider, c'est aussi choisir comment candidater : tout de suite, ou par le réseau d'abord.
-      const updated = await store.update("offers", offer.id, {
-        status,
-        decision_note: note ?? offer.decision_note ?? null,
-        ...(approach !== undefined ? { approach: approach as "direct" | "network" } : {}),
-      });
-      let process = null;
-      if (status === "applied") {
-        process = (await store.list("processes")).find((p) => p.offer_id === offer.id) ?? null;
-        if (!process) process = await store.insert("processes", { offer_id: offer.id, stage: "applied" });
-        else if (process.stage === "to_apply") process = await store.update("processes", process.id, { stage: "applied" });
-      }
-      return ok({ offer: updated, process });
+    if (first === "offers" && second === "duplicates" && m === "GET") {
+      return ok(await findDuplicates(store));
+    }
+
+    // Parcours : aller à une étape ({ "step": "screening" }) ou s'arrêter ({ "exit": "lost" }).
+    if (first === "offers" && second && third === "move" && m === "POST") {
+      const res = await moveOffer(store, second, (req.body ?? {}) as Move);
+      return res ? ok(res) : err(404, "Offre introuvable");
+    }
+
+    // Fusionner un doublon dans cette offre : { "from": "<id du doublon>" }.
+    if (first === "offers" && second && third === "merge" && m === "POST") {
+      const from = (req.body as { from?: string })?.from;
+      if (!from) return err(400, "from attendu");
+      const offer = await mergeOffers(store, second, from);
+      return offer ? ok({ offer }) : err(404, "Offre introuvable");
     }
 
     if (first === "offers" && second && third === "suggestions" && m === "GET") {
@@ -192,12 +208,14 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
     if (first === "offers" && second && third === "detail" && m === "GET") {
       const offer = await store.get("offers", second);
       if (!offer) return err(404, "Offre introuvable");
-      const [company, processes, interviews, meetings, people] = await Promise.all([
+      const [company, processes, interviews, meetings, people, offers, companies] = await Promise.all([
         offer.company_id ? store.get("companies", offer.company_id) : null,
         store.list("processes"),
         store.list("interviews"),
         store.list("meetings"),
         store.list("people"),
+        store.list("offers"),
+        store.list("companies"),
       ]);
       const process = processes.find((p) => p.offer_id === offer.id) ?? null;
       const linked = meetings.filter((x) => x.offer_id === offer.id);
@@ -205,6 +223,8 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
         offer,
         company,
         process,
+        state: stateOf(offer, process),
+        duplicates: offers.filter((o) => o.id !== offer.id && sameOffer(o, offer, companies)),
         interviews: process ? interviews.filter((i) => i.process_id === process.id) : [],
         meetings: linked.map((x) => ({ ...x, person: people.find((p) => p.id === x.person_id) ?? null })),
       });

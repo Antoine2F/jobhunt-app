@@ -39,6 +39,8 @@ export interface OfferForReview {
   score: number | null;
   score_reason: string | null;
   received_at: string | null;
+  cover_letter_url: string | null;
+  cv_url: string | null;
 }
 
 export async function listOffersForReview(store: Store, status?: string | null): Promise<OfferForReview[]> {
@@ -62,6 +64,8 @@ export async function listOffersForReview(store: Store, status?: string | null):
       score: o.score ?? null,
       score_reason: o.score_reason ?? null,
       received_at: o.received_at ?? null,
+      cover_letter_url: o.cover_letter_url ?? null,
+      cv_url: o.cv_url ?? null,
     }));
 }
 
@@ -72,6 +76,9 @@ export interface OfferReview {
   remote?: string | null;
   salary?: string | null;
   score_reason?: string | null;
+  /** Liens Google Drive du dossier de candidature (skill dossier-candidature). */
+  cover_letter_url?: string | null;
+  cv_url?: string | null;
   /** Seulement pour une offre encore « à valider » : la veille ne revient jamais sur une décision d'Antoine. */
   status?: "proposed" | "validated" | "rejected";
   decision_note?: string | null;
@@ -87,7 +94,7 @@ export async function reviewOffer(store: Store, id: string, review: OfferReview)
   if (review.score !== undefined) patch.score = review.score;
   if (review.score_reason !== undefined) patch.score_reason = review.score_reason;
   if (review.decision_note !== undefined) patch.decision_note = review.decision_note;
-  for (const k of ["location", "remote", "salary"] as const) if (review[k] !== undefined) patch[k] = review[k];
+  for (const k of ["location", "remote", "salary", "cover_letter_url", "cv_url"] as const) if (review[k] !== undefined) patch[k] = review[k];
   if (review.status !== undefined && review.status !== offer.status) {
     if (!["proposed", "validated", "rejected"].includes(review.status)) {
       throw new ValidationError("status : proposed | validated | rejected");

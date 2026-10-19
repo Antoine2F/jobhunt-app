@@ -44,6 +44,8 @@ IF COL_LENGTH(N'dbo.[offers]', N'score') IS NULL ALTER TABLE dbo.[offers] ADD [s
 IF COL_LENGTH(N'dbo.[offers]', N'score_reason') IS NULL ALTER TABLE dbo.[offers] ADD [score_reason] NVARCHAR(MAX) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'decision_note') IS NULL ALTER TABLE dbo.[offers] ADD [decision_note] NVARCHAR(MAX) NULL;
 IF COL_LENGTH(N'dbo.[offers]', N'received_at') IS NULL ALTER TABLE dbo.[offers] ADD [received_at] DATETIMEOFFSET NULL;
+IF COL_LENGTH(N'dbo.[offers]', N'cover_letter_url') IS NULL ALTER TABLE dbo.[offers] ADD [cover_letter_url] NVARCHAR(1000) NULL;
+IF COL_LENGTH(N'dbo.[offers]', N'cv_url') IS NULL ALTER TABLE dbo.[offers] ADD [cv_url] NVARCHAR(1000) NULL;
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'ix_offers_status') CREATE INDEX ix_offers_status ON dbo.[offers] ([status]);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'ix_offers_company_id') CREATE INDEX ix_offers_company_id ON dbo.[offers] ([company_id]);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'ix_offers_url_key') CREATE INDEX ix_offers_url_key ON dbo.[offers] ([url_key]);
@@ -57,6 +59,7 @@ CREATE TABLE dbo.[processes] (
 );
 IF COL_LENGTH(N'dbo.[processes]', N'offer_id') IS NULL ALTER TABLE dbo.[processes] ADD [offer_id] NVARCHAR(36) NULL;
 IF COL_LENGTH(N'dbo.[processes]', N'stage') IS NULL ALTER TABLE dbo.[processes] ADD [stage] NVARCHAR(20) NULL;
+IF COL_LENGTH(N'dbo.[processes]', N'outcome') IS NULL ALTER TABLE dbo.[processes] ADD [outcome] NVARCHAR(20) NULL;
 IF COL_LENGTH(N'dbo.[processes]', N'next_step') IS NULL ALTER TABLE dbo.[processes] ADD [next_step] NVARCHAR(300) NULL;
 IF COL_LENGTH(N'dbo.[processes]', N'next_step_date') IS NULL ALTER TABLE dbo.[processes] ADD [next_step_date] DATE NULL;
 IF COL_LENGTH(N'dbo.[processes]', N'contact_name') IS NULL ALTER TABLE dbo.[processes] ADD [contact_name] NVARCHAR(200) NULL;

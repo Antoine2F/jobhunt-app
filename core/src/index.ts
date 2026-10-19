@@ -1,4 +1,6 @@
 export * from "./schema.js";
+export * from "./pipeline.js";
+export * from "./offers.js";
 export * from "./store.js";
 export * from "./urls.js";
 export * from "./ingest.js";

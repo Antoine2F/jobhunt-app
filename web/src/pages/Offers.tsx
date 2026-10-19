@@ -1,61 +1,70 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { Company, Offer, Process } from "@jobhunt/core";
+import { CATEGORIES, categoryOf, stateOf, type Category } from "@jobhunt/core/pipeline";
 import { api, useApi } from "../api";
-import { companyFacts, fmtDate, OFFER_STATUS, SOURCE, STAGE } from "../labels";
+import { companyFacts, relDays, SOURCE } from "../labels";
+import { nextMove, StateChip, type Move } from "../Pipeline";
+import { isFresh } from "./Home";
 import { formData, Loading, Score, useToast } from "../ui";
 
-// Le parcours d'une offre : à valider → validée (réseau d'abord, ou à postuler) → candidature.
-const TABS = {
-  proposed: "À valider",
-  network: "Réseau d'abord",
-  direct: "À postuler",
-  active: "Candidatures",
-  all: "Toutes",
-} as const;
-type Tab = keyof typeof TABS;
+type Tab = Category | "all";
+const TABS: { key: Tab; label: string }[] = [
+  ...CATEGORIES.map((c) => ({ key: c.key as Tab, label: c.label })),
+  { key: "all", label: "Toutes" },
+];
+
+/** Décision rapide depuis la liste, pour les premières étapes. */
+const QUICK_EXIT: Partial<Record<Category, { exit: "rejected" | "not_applying"; label: string }>> = {
+  new: { exit: "rejected", label: "Pas intéressante" },
+  interesting: { exit: "not_applying", label: "Je ne postule pas" },
+};
 
 export function OffersPage() {
   const [params, setParams] = useSearchParams();
-  const tab = (params.get("tab") as Tab) || "proposed";
+  const tab = (params.get("tab") as Tab) || "new";
   const [query, setQuery] = useState("");
   const offers = useApi<Offer[]>("/offers");
   const companies = useApi<Company[]>("/companies");
   const processes = useApi<Process[]>("/processes");
+  const duplicates = useApi<Offer[][]>("/offers/duplicates");
   const toast = useToast();
 
   const companyOf = useMemo(() => {
     const m = new Map((companies.data ?? []).map((c) => [c.id, c]));
     return (id?: string | null) => (id ? m.get(id) : undefined);
   }, [companies.data]);
-  const companyName = (id?: string | null) => companyOf(id)?.name ?? "";
   const processOf = useMemo(() => {
     const m = new Map((processes.data ?? []).map((p) => [p.offer_id, p]));
     return (id: string) => m.get(id);
   }, [processes.data]);
 
-  const list = (offers.data ?? [])
-    .filter((o) => {
-      if (tab === "proposed") return o.status === "proposed";
-      if (tab === "network") return o.status === "validated" && o.approach === "network";
-      if (tab === "direct") return o.status === "validated" && o.approach !== "network";
-      if (tab === "active") return o.status === "applied";
-      return true;
-    })
-    .filter((o) => {
+  const rows = (offers.data ?? []).map((o) => {
+    const state = stateOf(o, processOf(o.id));
+    return { offer: o, state, category: categoryOf(state), company: companyOf(o.company_id) };
+  });
+  const count = (t: Tab) => (t === "all" ? rows.length : rows.filter((r) => r.category === t).length);
+  const arrived = (o: Offer) => o.received_at ?? o.created_at;
+  const list = rows
+    .filter((r) => tab === "all" || r.category === tab)
+    .filter((r) => {
       if (!query) return true;
       const q = query.toLowerCase();
-      return `${o.title} ${companyName(o.company_id)} ${o.location ?? ""}`.toLowerCase().includes(q);
+      return `${r.offer.title} ${r.company?.name ?? ""} ${r.offer.location ?? ""}`.toLowerCase().includes(q);
     })
+    // Nouvelles : les dernières arrivées en tête. Ailleurs : les dernières bougées en tête.
     .sort((a, b) =>
-      tab === "proposed" ? (b.score ?? -1) - (a.score ?? -1) : (b.received_at ?? b.created_at).localeCompare(a.received_at ?? a.created_at),
+      tab === "new" ? arrived(b.offer).localeCompare(arrived(a.offer)) : b.offer.updated_at.localeCompare(a.offer.updated_at),
     );
 
-  async function decide(o: Offer, decision: "validate" | "reject", approach?: "direct" | "network") {
-    await api(`/offers/${o.id}/decision`, { method: "POST", body: { decision, approach } });
-    toast(decision === "reject" ? "Offre rejetée" : approach === "network" ? "Validée : réseau d'abord" : "Validée : à postuler");
+  async function move(o: Offer, m: Move, msg: string) {
+    await api(`/offers/${o.id}/move`, { method: "POST", body: m });
+    toast(msg);
     offers.reload();
+    processes.reload();
   }
+
+  const dupCount = duplicates.data?.length ?? 0;
 
   return (
     <>
@@ -64,10 +73,25 @@ export function OffersPage() {
       </div>
       <AddOffer onAdded={() => offers.reload()} />
 
+      {dupCount > 0 && (
+        <div className="card banner small" style={{ marginTop: 12 }}>
+          <b>{dupCount === 1 ? "1 doublon probable" : `${dupCount} doublons probables`}</b> (même intitulé, même entreprise) :{" "}
+          {duplicates.data!.map((g, i) => (
+            <span key={i}>
+              {i > 0 && " · "}
+              <Link to={`/offres/${g[0].id}`}>
+                {g[0].title} ({g.length})
+              </Link>
+            </span>
+          ))}
+          . Ouvre l'offre pour les fusionner.
+        </div>
+      )}
+
       <div className="tabs" role="tablist" style={{ marginTop: 16 }}>
-        {(Object.keys(TABS) as Tab[]).map((t) => (
-          <button key={t} className={t === tab ? "active" : ""} onClick={() => setParams({ tab: t })} role="tab" aria-selected={t === tab}>
-            {TABS[t]}
+        {TABS.map((t) => (
+          <button key={t.key} className={t.key === tab ? "active" : ""} onClick={() => setParams({ tab: t.key })} role="tab" aria-selected={t.key === tab}>
+            {t.label} <span className="muted">{offers.data ? count(t.key) : ""}</span>
           </button>
         ))}
       </div>
@@ -76,16 +100,20 @@ export function OffersPage() {
       <div className="stack" style={{ marginTop: 12 }}>
         <Loading error={offers.error} loading={offers.loading && !offers.data} />
         {offers.data && list.length === 0 && <p className="empty">Aucune offre ici.</p>}
-        {list.map((o) => {
-          const proc = processOf(o.id);
-          const company = companyOf(o.company_id);
+        {list.map(({ offer: o, state, category, company }) => {
           const facts = companyFacts(company);
+          const next = state.exit ? null : nextMove(state.step);
+          const quickExit = QUICK_EXIT[category];
+          const quick = category === "new" || category === "interesting" || category === "to_apply";
           return (
             <div key={o.id} className="card">
               <div className="spread">
                 <div>
                   <Link to={`/offres/${o.id}`}>
-                    <h3>{o.title}</h3>
+                    <h3>
+                      {isFresh(o.created_at) && <span className="new-dot" title="Arrivée il y a moins de 48 h" />}
+                      {o.title}
+                    </h3>
                   </Link>
                   <div className="muted">
                     {company?.name || "Entreprise inconnue"}
@@ -99,24 +127,17 @@ export function OffersPage() {
               {company?.description && <p className="small clamp" style={{ margin: "6px 0 0" }}>{company.description}</p>}
               {o.score_reason && <p className="small muted" style={{ margin: "6px 0 0" }}>{o.score_reason}</p>}
               <div className="row small" style={{ marginTop: 8 }}>
-                <span className="chip">{proc ? STAGE[proc.stage] : OFFER_STATUS[o.status]}</span>
+                <StateChip state={state} />
+                {o.approach === "network" && <span className="chip ok">Réseau activé</span>}
                 {o.source && <span className="muted">{SOURCE[o.source] ?? o.source}</span>}
-                <span className="muted">{fmtDate(o.received_at ?? o.created_at)}</span>
-                {o.status === "proposed" && (
+                <span className="muted">reçue {relDays(arrived(o))}</span>
+                {quick && next && (
                   <span className="row" style={{ marginLeft: "auto" }}>
-                    <button onClick={() => decide(o, "reject")}>Rejeter</button>
-                    <button onClick={() => decide(o, "validate", "network")} title="Chercher d'abord quelqu'un qui peut me recommander">
-                      Réseau d'abord
-                    </button>
-                    <button className="primary" onClick={() => decide(o, "validate", "direct")}>
-                      Postuler
+                    {quickExit && <button onClick={() => move(o, { exit: quickExit.exit }, quickExit.label)}>✕ {quickExit.label}</button>}
+                    <button className="primary" onClick={() => move(o, { step: next.step }, next.label)}>
+                      {next.label} →
                     </button>
                   </span>
-                )}
-                {o.status === "validated" && (
-                  <Link to={`/offres/${o.id}`} style={{ marginLeft: "auto" }}>
-                    {o.approach === "network" ? "Voir les contacts →" : "Postuler →"}
-                  </Link>
                 )}
               </div>
             </div>

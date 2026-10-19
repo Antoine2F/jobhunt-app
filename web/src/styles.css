@@ -420,3 +420,61 @@ dl.props dd {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* --- Fil d'étapes d'une offre */
+.pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pipeline li {
+  display: flex;
+  align-items: center;
+}
+.pipeline li + li::before {
+  content: "›";
+  color: var(--muted);
+  margin-right: 4px;
+}
+.pipeline button {
+  min-height: 30px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+.pipeline .done button {
+  background: var(--chip);
+  border-color: transparent;
+  color: var(--ok);
+}
+.pipeline .current button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  opacity: 1;
+}
+.pipeline .stopped button {
+  border-color: var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+.pipeline .todo button {
+  color: var(--muted);
+  border-style: dashed;
+}
+.new-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.banner {
+  border-color: var(--warn);
+}

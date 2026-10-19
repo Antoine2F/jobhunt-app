@@ -39,10 +39,28 @@ export function seedDemo(store: MemoryStore) {
       url_key: "linkedin:1000000004", status: "proposed", score: 79,
       score_reason: "Même entreprise qu'un processus en cours ; poste plus transverse", received_at: iso(0, 7),
     },
+    {
+      ...meta("o-5"), company_id: "c-2", title: "Head of Product Data", location: "Paris", source: "linkedin",
+      url_key: "linkedin:1000000005", status: "interesting", score: 75, score_reason: "Produit data, bonne taille", received_at: iso(-3),
+    },
+    {
+      ...meta("o-6"), company_id: "c-3", title: "Directeur data & IA", location: "Paris", source: "manual",
+      url: "https://carrieres.conseil-fictif.test/offres/42", url_key: "carrieres.conseil-fictif.test/offres/42", status: "validated", score: 70, received_at: iso(-4),
+    },
+    {
+      ...meta("o-7"), company_id: "c-1", title: "Responsable plateforme data", location: "La Défense", source: "linkedin",
+      url_key: "linkedin:1000000007", status: "applied", score: 74, received_at: iso(-20),
+    },
+    {
+      ...meta("o-8"), company_id: "c-2", title: "VP Data", location: "Paris", source: "wttj",
+      url_key: "wttj:fintech-demo/vp-data", status: "closed", score: 80, received_at: iso(-40),
+    },
   ]);
   store.load("processes", [
     { ...meta("p-1"), offer_id: "o-1", stage: "interviews", next_step: "Relancer la RH après le 2e entretien", next_step_date: day(5) },
     { ...meta("p-2"), offer_id: "o-2", stage: "screening", next_step: "Envoyer le cas pratique", next_step_date: day(2) },
+    { ...meta("p-3"), offer_id: "o-7", stage: "applied", next_step: "Relancer si pas de nouvelles", next_step_date: day(6) },
+    { ...meta("p-4"), offer_id: "o-8", stage: "screening", outcome: "lost" },
   ]);
   store.load("interviews", [
     { ...meta("i-1"), process_id: "p-1", scheduled_at: iso(-6, 14), kind: "RH", status: "done", outcome: "Bon feeling, process en 3 tours" },
