@@ -1,16 +1,20 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Company, Interview, Meeting, Offer, Person, Process, SuggestionResult } from "@jobhunt/core";
+import type { PipelineState } from "@jobhunt/core/pipeline";
 // Seul le schéma est importé en valeur : le reste du noyau dépend de Node.
 import { COMPANY_SECTORS } from "@jobhunt/core/schema";
 import { api, useApi } from "../api";
-import { APPROACH, companyFacts, fmtDate, fromLocalInput, INTERVIEW_STATUS, MEETING_STATUS, OFFER_STATUS, SOURCE, STAGE, toLocalInput } from "../labels";
-import { formData, Loading, Score, Select, useToast } from "../ui";
+import { companyFacts, fmtDate, fromLocalInput, MEETING_STATUS, SOURCE, toLocalInput } from "../labels";
+import { LeadSteps, Pipeline, stateLabel, type Move } from "../Pipeline";
+import { formData, Loading, Score, useToast } from "../ui";
 
 interface Detail {
   offer: Offer;
   company: Company | null;
   process: Process | null;
+  state: PipelineState;
+  duplicates: Offer[];
   interviews: Interview[];
   meetings: (Meeting & { person: Person | null })[];
 }
@@ -18,40 +22,40 @@ interface Detail {
 export function OfferDetailPage() {
   const { id } = useParams();
   const { data, error, loading, reload } = useApi<Detail>(`/offers/${id}/detail`);
+  const [busy, setBusy] = useState(false);
   const toast = useToast();
   const navigate = useNavigate();
   if (!data) return <Loading error={error} loading={loading} />;
-  const { offer, company, process, interviews, meetings } = data;
+  const { offer, company, process, state, duplicates, interviews, meetings } = data;
 
-  async function decide(decision: string, approach?: "direct" | "network") {
-    await api(`/offers/${offer.id}/decision`, { method: "POST", body: { decision, approach } });
-    toast(decision === "apply" ? "Processus créé" : "Statut mis à jour");
+  async function move(m: Move) {
+    setBusy(true);
+    try {
+      const res = await api<{ state: PipelineState }>(`/offers/${offer.id}/move`, { method: "POST", body: m });
+      toast(stateLabel(res.state));
+      reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function setNetwork(on: boolean) {
+    await api(`/offers/${offer.id}`, { method: "PATCH", body: { approach: on ? "network" : null } });
+    toast(on ? "Démarche réseau activée" : "Démarche réseau désactivée");
     reload();
   }
-  const networkFirst = offer.status === "validated" && offer.approach === "network";
-  const network = (
-    <>
-      <h2>Réseau</h2>
-      {meetings.length > 0 && (
-        <div className="stack" style={{ marginBottom: 12 }}>
-          {meetings.map((m) => (
-            <Link key={m.id} to={`/reseau/${m.person_id}`} className="card row">
-              <b>{m.person?.name}</b>
-              <span className="chip">{MEETING_STATUS[m.status]}</span>
-              <span className="muted small">{m.topic}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-      <Suggestions offerId={offer.id} existing={new Set(meetings.map((m) => m.person_id))} onAdded={reload} />
-    </>
-  );
-
+  async function merge(other: Offer) {
+    if (!confirm(`Fusionner « ${other.title} » dans cette offre ? Le doublon sera supprimé, ses entretiens et rencontres rattachés ici.`)) return;
+    await api(`/offers/${offer.id}/merge`, { method: "POST", body: { from: other.id } });
+    toast("Doublon fusionné");
+    reload();
+  }
   async function remove() {
     if (!confirm("Supprimer cette offre, son processus et ses entretiens ?")) return;
     await api(`/offers/${offer.id}`, { method: "DELETE" });
     navigate("/offres");
   }
+  const network = offer.approach === "network";
+  const applying = ["to_apply", "applied"].includes(state.step) || !!offer.cover_letter_url || !!offer.cv_url;
 
   return (
     <>
@@ -73,8 +77,6 @@ export function OfferDetailPage() {
       </div>
 
       <div className="row small" style={{ margin: "12px 0" }}>
-        <span className="chip">{OFFER_STATUS[offer.status]}</span>
-        {offer.status === "validated" && offer.approach && <span className="chip ok">{APPROACH[offer.approach]}</span>}
         {offer.source && <span className="muted">{SOURCE[offer.source]}{offer.source_detail && ` (${offer.source_detail})`}</span>}
         <span className="muted">reçue {fmtDate(offer.received_at ?? offer.created_at)}</span>
         {offer.url && (
@@ -84,58 +86,138 @@ export function OfferDetailPage() {
         )}
       </div>
 
+      {duplicates.length > 0 && (
+        <div className="card banner small" style={{ marginBottom: 12 }}>
+          <b>Doublon probable</b> : même intitulé dans la même entreprise.
+          {duplicates.map((d) => (
+            <div key={d.id} className="row" style={{ marginTop: 6 }}>
+              <Link to={`/offres/${d.id}`}>{d.title}</Link>
+              <span className="muted">reçue {fmtDate(d.received_at ?? d.created_at)}</span>
+              <button onClick={() => merge(d)}>Fusionner ici</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Pipeline state={state} onMove={move} busy={busy} />
+
+      <div className="card row" style={{ marginTop: 10 }}>
+        <b>Réseau</b>
+        <span className="small muted">en parallèle de la candidature : trouver quelqu'un qui peut recommander ou présenter</span>
+        <span className="row" style={{ marginLeft: "auto" }}>
+          <button className={network ? "primary" : ""} onClick={() => !network && setNetwork(true)}>
+            Activé
+          </button>
+          <button className={!network ? "primary" : ""} onClick={() => network && setNetwork(false)}>
+            Non
+          </button>
+        </span>
+      </div>
+
+      {applying && <ApplyKit offer={offer} company={company} onSaved={reload} />}
+
       {offer.score_reason && <p className="card small">{offer.score_reason}</p>}
       {offer.description && <p>{offer.description}</p>}
 
       {company && <CompanyCard company={company} onSaved={reload} />}
-
-      <h2>Décision</h2>
-      {offer.status === "proposed" && (
-        <p className="small muted">
-          Intéressante ? Choisis comment y aller : <b>réseau d'abord</b> pour chercher quelqu'un qui peut te recommander avant de postuler,
-          ou <b>postuler</b> directement.
-        </p>
+      {state.step === "lead" && (
+        <LeadSteps offerId={offer.id} steps={interviews} onChange={reload} details={(s) => <StepDetails step={s} onSaved={reload} />} />
       )}
-      {networkFirst && (
-        <p className="card small">
-          Avant de postuler, trouve quelqu'un qui peut te recommander ou te présenter (contacts ci-dessous). Quand c'est fait, postule en le
-          mentionnant, puis clique sur « J'ai candidaté ».
-        </p>
-      )}
-      <div className="row">
-        {offer.status === "proposed" && (
-          <>
-            <button onClick={() => decide("reject")}>Rejeter</button>
-            <button onClick={() => decide("validate", "network")}>Réseau d'abord</button>
-            <button className="primary" onClick={() => decide("validate", "direct")}>Postuler directement</button>
-          </>
-        )}
-        {offer.status === "validated" && offer.approach !== "network" && offer.url && (
-          <a className="btn primary" href={offer.url} target="_blank" rel="noreferrer noopener">
-            Ouvrir l'annonce pour postuler ↗
-          </a>
-        )}
-        {offer.status === "validated" && (
-          <button className={networkFirst || !offer.url ? "primary" : ""} onClick={() => decide("apply")}>
-            J'ai candidaté
-          </button>
-        )}
-        {offer.status === "validated" &&
-          (networkFirst ? (
-            <button onClick={() => decide("validate", "direct")}>Postuler directement finalement</button>
-          ) : (
-            <button onClick={() => decide("validate", "network")}>Plutôt réseau d'abord</button>
-          ))}
-        {offer.status === "validated" && <button onClick={() => decide("reject")}>Rejeter</button>}
-        {offer.status === "rejected" && <button onClick={() => decide("validate")}>Revalider</button>}
-        {offer.status === "applied" && <button onClick={() => decide("close")}>Clore</button>}
-        <button className="danger" onClick={remove} style={{ marginLeft: "auto" }}>Supprimer</button>
-      </div>
-
-      {networkFirst && network}
       {process && <ProcessCard process={process} onSaved={reload} />}
-      {process && <Interviews processId={process.id} interviews={interviews} onChange={reload} />}
-      {!networkFirst && network}
+
+      {(network || meetings.length > 0) && (
+        <>
+          <h2>Contacts pour cette offre</h2>
+          {meetings.length > 0 && (
+            <div className="stack" style={{ marginBottom: 12 }}>
+              {meetings.map((m) => (
+                <Link key={m.id} to={`/reseau/${m.person_id}`} className="card row">
+                  <b>{m.person?.name}</b>
+                  <span className="chip">{MEETING_STATUS[m.status]}</span>
+                  <span className="muted small">{m.topic}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+          {network && <Suggestions offerId={offer.id} existing={new Set(meetings.map((m) => m.person_id))} onAdded={reload} />}
+        </>
+      )}
+
+      <div className="row" style={{ marginTop: 24 }}>
+        <button className="danger" onClick={remove} style={{ marginLeft: "auto" }}>
+          Supprimer l'offre
+        </button>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Aide à la candidature. L'appli n'appelle pas Claude elle-même (pas de clé API) :
+ * les boutons ouvrent Claude avec la demande prête, le skill dossier-candidature
+ * crée les documents dans Google Drive et range leurs liens ici.
+ */
+function ApplyKit({ offer, company, onSaved }: { offer: Offer; company: Company | null; onSaved: () => void }) {
+  const toast = useToast();
+  const ask = (what: string) =>
+    `https://claude.ai/new?q=${encodeURIComponent(
+      `/dossier-candidature ${what} ${offer.id}\n${offer.title} — ${company?.name ?? ""}${offer.url ? `\n${offer.url}` : ""}`,
+    )}`;
+  async function save(e: React.FormEvent<HTMLFormElement>) {
+    await api(`/offers/${offer.id}`, { method: "PATCH", body: formData(e) });
+    toast("Liens enregistrés");
+    onSaved();
+  }
+  return (
+    <>
+      <h2>Candidater</h2>
+      <div className="card">
+        <div className="row">
+          {offer.url && (
+            <a className="btn primary" href={offer.url} target="_blank" rel="noreferrer noopener">
+              Ouvrir l'annonce ↗
+            </a>
+          )}
+          {offer.cover_letter_url ? (
+            <a className="btn" href={offer.cover_letter_url} target="_blank" rel="noreferrer noopener">
+              Lettre de motivation ↗
+            </a>
+          ) : (
+            <a className="btn" href={ask("lettre")} target="_blank" rel="noreferrer noopener">
+              Générer la lettre (Claude) ↗
+            </a>
+          )}
+          {offer.cv_url ? (
+            <a className="btn" href={offer.cv_url} target="_blank" rel="noreferrer noopener">
+              CV adapté ↗
+            </a>
+          ) : (
+            <a className="btn" href={ask("cv")} target="_blank" rel="noreferrer noopener">
+              Préparer le CV (Claude) ↗
+            </a>
+          )}
+        </div>
+        <p className="small muted" style={{ margin: "8px 0 0" }}>
+          Claude crée les documents dans Google Drive (dossier « job / candidatures ») à partir du CV de « job / cv », et les relie à l'offre : recharge la page
+          ensuite.
+        </p>
+        <details style={{ marginTop: 6 }}>
+          <summary className="small" style={{ cursor: "pointer" }}>Liens des documents</summary>
+          <form className="form" onSubmit={save} key={offer.updated_at} style={{ marginTop: 8 }}>
+            <label className="full">
+              Lettre de motivation
+              <input name="cover_letter_url" type="url" defaultValue={offer.cover_letter_url ?? ""} placeholder="https://docs.google.com/…" />
+            </label>
+            <label className="full">
+              CV
+              <input name="cv_url" type="url" defaultValue={offer.cv_url ?? ""} placeholder="https://docs.google.com/…" />
+            </label>
+            <div className="full">
+              <button className="primary">Enregistrer</button>
+            </div>
+          </form>
+        </details>
+      </div>
     </>
   );
 }
@@ -225,27 +307,17 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
 function ProcessCard({ process, onSaved }: { process: Process; onSaved: () => void }) {
   const toast = useToast();
   async function save(e: React.FormEvent<HTMLFormElement>) {
-    const f = formData(e);
-    await api(`/processes/${process.id}`, { method: "PATCH", body: f });
-    toast("Processus enregistré");
+    await api(`/processes/${process.id}`, { method: "PATCH", body: formData(e) });
+    toast("Enregistré");
     onSaved();
   }
   return (
     <>
-      <h2>Processus</h2>
+      <h2>Suivi de la candidature</h2>
       <form className="card form" onSubmit={save} key={process.updated_at}>
-        <Select name="stage" label="Étape" options={STAGE} defaultValue={process.stage} />
         <label>
           Contact RH / recruteur
           <input name="contact_name" defaultValue={process.contact_name ?? ""} />
-        </label>
-        <label>
-          Prochaine action
-          <input name="next_step" defaultValue={process.next_step ?? ""} placeholder="Relancer, envoyer le cas…" />
-        </label>
-        <label>
-          Pour le
-          <input name="next_step_date" type="date" defaultValue={process.next_step_date ?? ""} />
         </label>
         <label className="full">
           Notes
@@ -259,94 +331,48 @@ function ProcessCard({ process, onSaved }: { process: Process; onSaved: () => vo
   );
 }
 
-function Interviews({ processId, interviews, onChange }: { processId: string; interviews: Interview[]; onChange: () => void }) {
-  const [adding, setAdding] = useState(false);
+/** Détails d'une étape de piste : date si elle est connue, interlocuteurs, préparation, compte rendu. */
+function StepDetails({ step, onSaved }: { step: Interview; onSaved: () => void }) {
   const toast = useToast();
-  const sorted = [...interviews].sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? ""));
-
-  async function save(e: React.FormEvent<HTMLFormElement>, id?: string) {
+  async function save(e: React.FormEvent<HTMLFormElement>) {
     const f = formData(e);
-    const body = { ...f, scheduled_at: fromLocalInput(f.scheduled_at ?? ""), process_id: processId };
-    if (id) await api(`/interviews/${id}`, { method: "PATCH", body });
-    else await api(`/interviews`, { method: "POST", body });
-    toast("Entretien enregistré");
-    setAdding(false);
-    onChange();
+    await api(`/interviews/${step.id}`, { method: "PATCH", body: { ...f, scheduled_at: fromLocalInput(f.scheduled_at ?? "") } });
+    toast("Étape enregistrée");
+    onSaved();
   }
-
+  const summary = [step.scheduled_at && fmtDate(step.scheduled_at, true), step.interviewers && `avec ${step.interviewers}`].filter(Boolean).join(" · ");
   return (
-    <>
-      <div className="spread" style={{ alignItems: "center" }}>
-        <h2>Entretiens</h2>
-        {!adding && <button onClick={() => setAdding(true)}>+ Entretien</button>}
-      </div>
-      {adding && <InterviewForm onSubmit={(e) => save(e)} onCancel={() => setAdding(false)} />}
-      {sorted.length === 0 && !adding && <p className="empty">Aucun entretien pour l'instant.</p>}
-      <div className="stack">
-        {sorted.map((i) => (
-          <details key={i.id} className="card">
-            <summary className="row" style={{ cursor: "pointer" }}>
-              <b>{i.kind || "Entretien"}</b>
-              <span className={`chip ${i.status === "to_prepare" ? "warn" : ""}`}>{INTERVIEW_STATUS[i.status]}</span>
-              <span className="muted small">{fmtDate(i.scheduled_at, true)}</span>
-              {i.interviewers && <span className="small">avec {i.interviewers}</span>}
-            </summary>
-            <div style={{ marginTop: 10 }}>
-              <InterviewForm interview={i} onSubmit={(e) => save(e, i.id)} />
-            </div>
-          </details>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function InterviewForm({
-  interview,
-  onSubmit,
-  onCancel,
-}: {
-  interview?: Interview;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-  onCancel?: () => void;
-}) {
-  return (
-    <form className="form" onSubmit={onSubmit} style={{ marginBottom: 10 }}>
-      <label>
-        Date et heure
-        <input name="scheduled_at" type="datetime-local" defaultValue={toLocalInput(interview?.scheduled_at)} />
-      </label>
-      <label>
-        Type
-        <input name="kind" defaultValue={interview?.kind ?? ""} placeholder="RH, manager, cas, pairs…" />
-      </label>
-      <label>
-        Avec
-        <input name="interviewers" defaultValue={interview?.interviewers ?? ""} />
-      </label>
-      <Select name="status" label="Statut" options={INTERVIEW_STATUS} defaultValue={interview?.status ?? "to_prepare"} />
-      <label className="full">
-        Fiche de préparation (chemin dans la base de connaissance)
-        <input name="prep_path" defaultValue={interview?.prep_path ?? ""} placeholder="entretiens/entreprise-manager.md" />
-      </label>
-      <label className="full">
-        Notes de préparation
-        <textarea name="notes" defaultValue={interview?.notes ?? ""} />
-      </label>
-      <label className="full">
-        Compte rendu / résultat
-        <textarea name="outcome" defaultValue={interview?.outcome ?? ""} />
-      </label>
-      <div className="row full">
-        <button className="primary">Enregistrer</button>
-        {onCancel && (
-          <button type="button" onClick={onCancel}>
-            Annuler
-          </button>
-        )}
-        {interview?.prep_path && <Link to={`/profil/${interview.prep_path}`}>Ouvrir la fiche</Link>}
-      </div>
-    </form>
+    <details style={{ marginTop: 8 }}>
+      <summary className="small" style={{ cursor: "pointer" }}>
+        Détails{summary && <span className="muted"> · {summary}</span>}
+      </summary>
+      <form className="form" onSubmit={save} key={step.updated_at} style={{ marginTop: 8 }}>
+        <label>
+          Date (si connue)
+          <input name="scheduled_at" type="datetime-local" defaultValue={toLocalInput(step.scheduled_at)} />
+        </label>
+        <label>
+          Avec
+          <input name="interviewers" defaultValue={step.interviewers ?? ""} />
+        </label>
+        <label className="full">
+          Fiche de préparation (chemin dans la base de connaissance)
+          <input name="prep_path" defaultValue={step.prep_path ?? ""} placeholder="entretiens/entreprise-manager.md" />
+        </label>
+        <label className="full">
+          Notes de préparation
+          <textarea name="notes" defaultValue={step.notes ?? ""} />
+        </label>
+        <label className="full">
+          Compte rendu
+          <textarea name="outcome" defaultValue={step.outcome ?? ""} />
+        </label>
+        <div className="row full">
+          <button className="primary">Enregistrer</button>
+          {step.prep_path && <Link to={`/profil/${step.prep_path}`}>Ouvrir la fiche</Link>}
+        </div>
+      </form>
+    </details>
   );
 }
 

@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   applyIngest,
+  addStep,
+  categoryOf,
+  currentStep,
+  DEFAULT_LEAD_STEPS,
+  resultOf,
+  setStepResult,
+  sortSteps,
+  findDuplicates,
+  mergeOffers,
+  moveOffer,
+  stateOf,
   buildHome,
   MemoryStore,
   offerKey,
@@ -66,16 +77,26 @@ describe("applyIngest", () => {
 });
 
 describe("buildHome", () => {
-  it("liste les processus actifs et les échéances triées", async () => {
+  it("compte les offres par famille et donne l'étape en cours des pistes", async () => {
     const store = new MemoryStore();
     seedDemo(store);
     const home = await buildHome(store);
-    expect(home.counts.active_processes).toBe(2);
-    expect(home.counts.proposed).toBe(2);
-    expect(home.deadlines.length).toBeGreaterThanOrEqual(3);
-    const dates = home.deadlines.map((d) => d.date);
-    expect([...dates].sort()).toEqual(dates);
-    expect(home.to_review[0].score).toBe(79);
+    expect(home.counts).toEqual({
+      new: 2,
+      interesting: 1,
+      to_apply: 1,
+      waiting: 1,
+      lead: 2,
+      won: 0,
+      not_considered: 1,
+      cv_refused: 1,
+      lead_failed: 1,
+    });
+    expect(home.leads.map((l) => l.offer.id).sort()).toEqual(["o-1", "o-2"]);
+    expect(home.leads.find((l) => l.offer.id === "o-1")!.current_step!.kind).toBe("Step 2 (Recr. Mgr)");
+    expect(home.network.deadlines).toHaveLength(1);
+    // Nouvelles offres : la plus récente d'abord, quel que soit le score.
+    expect(home.latest.map((l) => l.offer.id)).toEqual(["o-4", "o-3"]);
   });
 });
 
@@ -104,5 +125,76 @@ describe("knowledge", () => {
     expect(c.meta.type).toBe("Skill Inventory");
     expect(c.meta.tags).toEqual(["data"]);
     expect(c.body.trim()).toBe("# Corps");
+  });
+});
+
+describe("parcours d'une offre", () => {
+  it("postulé : en attente, puis retour positif (piste avec ses étapes) ou négatif (CV refusé)", async () => {
+    const store = new MemoryStore();
+    seedDemo(store);
+    expect((await moveOffer(store, "o-3", { step: "interesting" }))!.state).toEqual({ step: "interesting", exit: null });
+    const applied = (await moveOffer(store, "o-3", { step: "applied" }))!;
+    expect(categoryOf(applied.state)).toBe("waiting");
+    // Retour négatif : CV refusé.
+    expect(categoryOf((await moveOffer(store, "o-3", { exit: "lost" }))!.state)).toBe("cv_refused");
+    // Correction : retour positif → piste, avec les étapes par défaut.
+    const lead = (await moveOffer(store, "o-3", { step: "lead" }))!;
+    expect(categoryOf(lead.state)).toBe("lead");
+    const steps = sortSteps((await store.list("interviews")).filter((i) => i.process_id === lead.process!.id));
+    expect(steps.map((s) => s.kind)).toEqual(DEFAULT_LEAD_STEPS);
+    expect(steps.every((s) => s.result === "to_plan")).toBe(true);
+    expect((await store.list("processes")).filter((p) => p.offer_id === "o-3")).toHaveLength(1);
+  });
+
+  it("piste : un retour négatif sur une étape la met en échec, le corriger la rouvre", async () => {
+    const store = new MemoryStore();
+    seedDemo(store);
+    expect((await setStepResult(store, "i-2", "negative"))!.state).toEqual({ step: "lead", exit: "lost" });
+    expect((await store.get("offers", "o-1"))!.status).toBe("closed");
+    const back = (await setStepResult(store, "i-2", "positive"))!;
+    expect(categoryOf(back.state)).toBe("lead");
+    expect(back.offer.status).toBe("applied");
+    // Étape suivante : la 3e, à planifier ; on peut en ajouter une 5e.
+    const step = (await addStep(store, "o-1", "Step 5 (CEO)"))!;
+    expect(step.position).toBe(5);
+    const all = (await store.list("interviews")).filter((i) => i.process_id === "p-1");
+    expect(currentStep(all)!.kind).toBe("Step 3 (UC)");
+  });
+
+  it("lit les anciennes données", () => {
+    expect(stateOf({ status: "closed" }, { stage: "lost", outcome: null })).toEqual({ step: "applied", exit: "lost" });
+    expect(stateOf({ status: "applied" }, { stage: "interviews", outcome: null })).toEqual({ step: "lead", exit: null });
+    expect(stateOf({ status: "closed" }, { stage: "applied", outcome: "no_answer" })).toEqual({ step: "applied", exit: "lost" });
+    expect(stateOf({ status: "validated" }, { stage: "to_apply", outcome: null })).toEqual({ step: "to_apply", exit: null });
+    expect(stateOf({ status: "rejected" }, null)).toEqual({ step: "new", exit: "rejected" });
+    expect(resultOf({ result: null, status: "done" })).toBe("positive");
+  });
+});
+
+describe("doublons", () => {
+  it("ignore à l'ingestion une offre au même intitulé dans la même entreprise", async () => {
+    const store = new MemoryStore();
+    const send = (url: string, title: string) =>
+      applyIngest(store, { source: "linkedin", offers: [{ title, company: "Datadog", url }] });
+    await send("https://www.linkedin.com/jobs/view/4300000001", "Senior Product Manager - APM (H/F)");
+    const again = await send("https://careers.datadoghq.com/detail/123", "Senior Product Manager – APM");
+    expect(again.created).toHaveLength(0);
+    expect(await store.list("offers")).toHaveLength(1);
+    // Un autre poste dans la même entreprise reste distinct.
+    expect((await send("https://www.linkedin.com/jobs/view/4300000002", "Product Manager Logs")).created).toHaveLength(1);
+  });
+
+  it("fusionne deux offres en gardant le parcours le plus avancé", async () => {
+    const store = new MemoryStore();
+    seedDemo(store);
+    // Doublon arrivé plus tard, déjà en entretiens.
+    await store.update("offers", "o-4", { title: "Head of Data & IA", url: "https://exemple-energie.test/jobs/1" });
+    expect((await findDuplicates(store)).map((g) => g.map((o) => o.id).sort())).toEqual([["o-1", "o-4"]]);
+    const merged = (await mergeOffers(store, "o-4", "o-1"))!;
+    expect(merged.status).toBe("applied");
+    expect(await store.get("offers", "o-1")).toBeNull();
+    const proc = (await store.list("processes")).find((p) => p.offer_id === "o-4")!;
+    expect(proc.stage).toBe("lead");
+    expect((await store.list("interviews")).filter((i) => i.process_id === proc.id)).toHaveLength(4);
   });
 });

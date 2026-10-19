@@ -34,7 +34,7 @@ Ce skill sert à l'initialisation, puis à chaque fois que je veux rattraper un 
    - **Mes notes** dans le dossier de travail : `entretiens/` (préparations et comptes rendus), `reseau/` (notes d'échange), `entreprises/`.
    Regroupe par entreprise et par poste, et fusionne les personnes vues dans plusieurs sources (Notion, classeur, e-mails). En cas de désaccord entre sources, garde la plus récente et signale-le. N'invente rien : une information absente reste absente (champ omis), et si tu déduis quelque chose (par ex. une étape), dis-le dans `notes`.
 
-3. **Montre-moi un tableau de synthèse avant toute écriture**, un processus par ligne : entreprise, poste, étape (`stage`), entretiens (date, type, statut), prochaine étape et date, sources (e-mail, agenda, Notion, classeur, note). Puis la liste des personnes et rencontres. Demande-moi de corriger, compléter ou retirer des lignes, et attends ma validation.
+3. **Montre-moi un tableau de synthèse avant toute écriture**, un processus par ligne : entreprise, poste, étape (`stage`), étapes de la piste (nom, résultat, date si connue), sources (e-mail, agenda, Notion, classeur, note). Puis la liste des personnes et rencontres. Demande-moi de corriger, compléter ou retirer des lignes, et attends ma validation.
 
 4. **Prépare le lot** dans `veille/reprise-<AAAA-MM-JJ>.json` (dossier ignoré par git), au format ci-dessous, puis **simule** :
    ```bash
@@ -66,15 +66,14 @@ Ce skill sert à l'initialisation, puis à chaque fois que je veux rattraper un 
       "source_detail": "Cooptation Samuel Savin",
       "applied_at": "2026-10-07T09:00:00Z",
       "company_info": { "description": "Plateforme d'observabilité cloud", "size": "6 500 salariés", "sector": "logiciel" },
-      "stage": "interviews",
-      "next_step": "Entretien hiring manager",
-      "next_step_date": "2026-10-20",
+      "stage": "lead",
       "contact_name": "Prénom Nom (recruteur)",
       "notes": "Faits utiles, et ce qui est déduit plutôt que lu.",
       "interviews": [
-        { "scheduled_at": "2026-10-10T14:00:00Z", "kind": "Recruteur", "interviewers": "Prénom Nom",
-          "status": "done", "outcome": "Positif, passe au HM",
-          "prep_path": "entretiens/datadog-recruteur-2026-10-10.md" }
+        { "kind": "Step 1 (HR)", "position": 1, "result": "positive", "scheduled_at": "2026-10-10T14:00:00Z",
+          "interviewers": "Prénom Nom", "outcome": "Positif, passe au HM",
+          "prep_path": "entretiens/datadog-recruteur-2026-10-10.md" },
+        { "kind": "Step 2 (Recr. Mgr)", "position": 2, "result": "to_plan" }
       ]
     }
   ],
@@ -96,12 +95,12 @@ Ce skill sert à l'initialisation, puis à chaque fois que je veux rattraper un 
 ```
 
 Valeurs autorisées :
-- `stage` : `to_apply` (offre retenue, candidature pas encore envoyée : l'offre reste « validée », en candidature directe), `applied` (candidature envoyée), `screening` (premier échange recruteur), `interviews`, `case_study`, `final`, `offer` (proposition reçue), `won`, `lost` (refus), `withdrawn` (je me suis retiré). `won`, `lost` et `withdrawn` clôturent l'offre.
-- `interviews[].status` : `to_prepare` (à venir), `done`, `cancelled`.
+- `stage` : `to_apply` (offre retenue, candidature pas encore envoyée), `applied` (postulé, en attente de retour), `lead` (piste : retour positif, l'entreprise a manifesté son intérêt), `won` (offre acceptée), `lost` (CV refusé : refus sans entretien), `withdrawn` (je me suis retiré avant tout entretien).
+- `interviews` : les **étapes de la piste** (`stage: "lead"`), dans l'ordre. `kind` est le nom de l'étape : `Step 1 (HR)`, `Step 2 (Recr. Mgr)`, `Step 3 (UC)`, `Step 4 (culture)` par défaut, ou le vrai nom si je le connais ; `position` : 1, 2, 3… ; `result` : `to_plan` (à planifier), `waiting` (entretien passé, en attente de retour), `positive`, `negative`. **Une piste en échec** = `stage: "lead"` et un `result: "negative"` sur l'étape où ça s'est arrêté.
 - `meetings[].status` : `to_see`, `planned`, `seen`, `cancelled`.
 - `source` : `linkedin`, `wttj`, `cabinet`, `manual`, `network`, `other`.
 - `strength` : 1 = faible, 2 = moyen, 3 = proche.
-- Dates : ISO 8601 (`2026-10-10T14:00:00Z`), et `AAAA-MM-JJ` pour `next_step_date`.
+- Dates : ISO 8601 (`2026-10-10T14:00:00Z`).
 
 Comment l'appli retrouve ce qui existe déjà :
 - **offre** : par son URL, sinon par entreprise + intitulé (une offre remontée par la veille est donc reprise, pas dupliquée — garde l'intitulé tel qu'il apparaît dans l'appli) ;

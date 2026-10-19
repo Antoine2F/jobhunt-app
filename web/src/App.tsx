@@ -11,10 +11,10 @@ import { PersonPage } from "./pages/Person";
 import { ProfilePage } from "./pages/Profile";
 
 export function App() {
-  // Compteur d'offres à valider affiché dans la navigation, rafraîchi à chaque page.
+  // Nombre de nouvelles offres affiché dans la navigation, rafraîchi à chaque page.
   const { pathname } = useLocation();
   const { data: home } = useApi<HomeView>(`/home?from=${encodeURIComponent(pathname)}`);
-  const toReview = home?.counts.proposed ?? 0;
+  const toReview = home?.counts.new ?? 0;
 
   return (
     <ToastProvider>

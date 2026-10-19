@@ -1,4 +1,5 @@
 import type { Company, Offer, OfferSource } from "./schema.js";
+import { sameOffer } from "./offers.js";
 import type { Store } from "./store.js";
 import { fallbackKey, normalizeCompanyName, offerKey } from "./urls.js";
 
@@ -62,8 +63,8 @@ export interface IngestPayload {
   /** Identifiant du message e-mail d'origine, pour ne jamais le retraiter. */
   message_id?: string | null;
   received_at?: string | null;
-  /** "proposed" par défaut ; "validated" quand c'est toi qui ajoutes l'offre. */
-  status?: "proposed" | "validated";
+  /** "proposed" (nouvelle) par défaut ; "interesting" quand c'est toi qui ajoutes l'offre. */
+  status?: "proposed" | "interesting" | "validated";
   offers: IncomingOffer[];
 }
 
@@ -96,7 +97,11 @@ export async function applyIngest(store: Store, payload: IngestPayload): Promise
   for (const o of payload.offers) {
     if (!o.title?.trim()) continue;
     const key = keyOf(o);
-    if (keys.has(key)) {
+    // Doublon : même lien, ou même intitulé dans la même entreprise (offre republiée, autre alerte, autre site).
+    const companyName = o.company?.trim() ? normalizeCompanyName(o.company) : null;
+    const companyId = companyName ? companies.find((c) => normalizeCompanyName(c.name) === companyName)?.id : undefined;
+    const sameTitle = companyId && existing.some((e) => sameOffer(e, { company_id: companyId, title: o.title }, companies));
+    if (keys.has(key) || sameTitle) {
       duplicates++;
       // Même en doublon, l'entreprise peut gagner des informations.
       if (o.company?.trim() && o.company_info) {
@@ -110,25 +115,25 @@ export async function applyIngest(store: Store, payload: IngestPayload): Promise
       company = await fillCompanyInfo(store, company, o.company_info);
       companies[companies.findIndex((c) => c.id === company!.id)] = company;
     }
-    created.push(
-      await store.insert("offers", {
-        title: o.title.trim(),
-        company_id: company?.id ?? null,
-        location: o.location ?? null,
-        remote: o.remote ?? null,
-        contract: o.contract ?? null,
-        salary: o.salary ?? null,
-        url: o.url ?? null,
-        url_key: key,
-        description: o.description ?? null,
-        score: o.score ?? null,
-        score_reason: o.score_reason ?? null,
-        source: payload.source,
-        source_detail: payload.source_detail ?? null,
-        status: payload.status ?? "proposed",
-        received_at: payload.received_at ?? new Date().toISOString(),
-      }),
-    );
+    const row = await store.insert("offers", {
+      title: o.title.trim(),
+      company_id: company?.id ?? null,
+      location: o.location ?? null,
+      remote: o.remote ?? null,
+      contract: o.contract ?? null,
+      salary: o.salary ?? null,
+      url: o.url ?? null,
+      url_key: key,
+      description: o.description ?? null,
+      score: o.score ?? null,
+      score_reason: o.score_reason ?? null,
+      source: payload.source,
+      source_detail: payload.source_detail ?? null,
+      status: payload.status ?? "proposed",
+      received_at: payload.received_at ?? new Date().toISOString(),
+    });
+    created.push(row);
+    existing.push(row);
   }
 
   if (payload.message_id) {

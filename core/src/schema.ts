@@ -1,32 +1,43 @@
 // Description des tables. Sert à la fois au stockage (mémoire ou SQL),
 // à la validation des écritures de l'API et aux types TypeScript.
 
+// Le parcours complet (étapes et sorties) est décrit dans pipeline.ts.
 export const OFFER_STATUSES = [
-  "proposed", // remontée par la veille, en attente de validation
-  "validated", // validée, pas encore candidaté
-  "rejected",
+  "proposed", // nouvelle : remontée par la veille, pas encore regardée
+  "interesting", // intéressante, décision de postuler pas encore prise
+  "validated", // à postuler
+  "rejected", // pas intéressante
+  "not_applying", // intéressante, mais je ne postule pas
   "applied", // candidature envoyée → un processus existe
-  "closed",
+  "closed", // terminée (issue dans processes.outcome)
 ] as const;
 
 export const PROCESS_STAGES = [
   "to_apply", // retenue, candidature pas encore envoyée
-  "applied",
+  "applied", // postulé, en attente de retour
+  "lead", // piste : retour positif, les étapes sont dans interviews
+  "won", // offre acceptée
+  // Anciennes valeurs, lues comme « piste » (screening… offer) ou comme un arrêt (lost, withdrawn).
   "screening",
   "interviews",
   "case_study",
   "final",
   "offer",
-  "won",
   "lost",
   "withdrawn",
 ] as const;
+
+/** Comment un processus s'est arrêté : refus (CV refusé, ou piste en échec) ou retrait. */
+export const PROCESS_OUTCOMES = ["lost", "withdrawn", "no_answer"] as const;
+
+/** État d'une étape de piste (entretien RH, manager…). */
+export const STEP_RESULTS = ["to_plan", "waiting", "positive", "negative"] as const;
 
 export const INTERVIEW_STATUSES = ["to_prepare", "done", "cancelled"] as const;
 export const MEETING_STATUSES = ["to_see", "planned", "seen", "cancelled"] as const;
 export const INTRO_STATUSES = ["to_ask", "asked", "done", "declined"] as const;
 export const OFFER_SOURCES = ["linkedin", "wttj", "cabinet", "manual", "network", "other"] as const;
-/** Une fois l'offre validée : candidater tout de suite, ou chercher d'abord une recommandation. */
+/** « network » : démarche réseau activée pour cette offre, en parallèle de la candidature. */
 export const OFFER_APPROACHES = ["direct", "network"] as const;
 
 /**
@@ -56,6 +67,8 @@ export const COMPANY_SECTORS = [
 
 export type OfferStatus = (typeof OFFER_STATUSES)[number];
 export type ProcessStage = (typeof PROCESS_STAGES)[number];
+export type ProcessOutcome = (typeof PROCESS_OUTCOMES)[number];
+export type StepResult = (typeof STEP_RESULTS)[number];
 export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
 export type MeetingStatus = (typeof MEETING_STATUSES)[number];
 export type IntroStatus = (typeof INTRO_STATUSES)[number];
@@ -105,17 +118,23 @@ export const TABLES = {
     score_reason: { type: "text" },
     decision_note: { type: "text" },
     received_at: { type: "datetime" },
+    cover_letter_url: { type: "string", max: 1000 }, // lettre de motivation (Google Drive)
+    cv_url: { type: "string", max: 1000 }, // CV adapté (Google Drive)
   },
   processes: {
     offer_id: { type: "string", required: true, max: 36 },
-    stage: { type: "string", enum: PROCESS_STAGES, required: true, max: 20 },
+    stage: { type: "string", enum: PROCESS_STAGES, required: true, max: 20 }, // dernière étape atteinte
+    outcome: { type: "string", enum: PROCESS_OUTCOMES, max: 20 }, // vide tant que le processus continue
     next_step: { type: "string", max: 300 },
     next_step_date: { type: "date" },
     contact_name: { type: "string", max: 200 },
     notes: { type: "text" },
   },
+  // Étapes d'une piste (« Step 1 (HR) »…) : une ligne par étape, nom dans `kind`.
   interviews: {
     process_id: { type: "string", required: true, max: 36 },
+    position: { type: "int" }, // ordre dans la piste
+    result: { type: "string", enum: STEP_RESULTS, max: 20 },
     scheduled_at: { type: "datetime" },
     kind: { type: "string", max: 80 },
     interviewers: { type: "string", max: 400 },

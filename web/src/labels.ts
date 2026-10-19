@@ -1,35 +1,3 @@
-export const OFFER_STATUS: Record<string, string> = {
-  proposed: "À valider",
-  validated: "Validée",
-  rejected: "Rejetée",
-  applied: "Candidature",
-  closed: "Close",
-};
-
-export const APPROACH: Record<string, string> = {
-  network: "Réseau d'abord",
-  direct: "Candidature directe",
-};
-
-export const STAGE: Record<string, string> = {
-  to_apply: "À postuler",
-  applied: "Candidature envoyée",
-  screening: "Préqualification",
-  interviews: "Entretiens",
-  case_study: "Cas pratique",
-  final: "Dernier tour",
-  offer: "Offre reçue",
-  won: "Acceptée",
-  lost: "Refus",
-  withdrawn: "Désistement",
-};
-
-export const INTERVIEW_STATUS: Record<string, string> = {
-  to_prepare: "À préparer",
-  done: "Fait",
-  cancelled: "Annulé",
-};
-
 export const MEETING_STATUS: Record<string, string> = {
   to_see: "À voir",
   planned: "Planifiée",

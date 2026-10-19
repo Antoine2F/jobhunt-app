@@ -1,6 +1,6 @@
 ---
 name: fiche-entreprise
-description: Complète la fiche d'une entreprise dans mon appli de recherche d'emploi — ce qu'elle fait, secteur, effectif, siège (pays), bureaux des équipes produit/tech, nationalité des fondateurs, origine des capitaux, financement, site — à partir de sources publiques, sans rien inventer. Seul endroit où sont décrites ces règles : les skills veille-offres, linkedin-veille et nouvelle-offre-jobhunt s'en servent. À utiliser quand je dis « fais la fiche de <entreprise> », « complète les fiches entreprises », « /fiche-entreprise ».
+description: Complète la fiche d'une entreprise dans mon appli de recherche d'emploi — ce qu'elle fait, secteur, effectif, siège (pays), bureaux des équipes produit/tech, nationalité des fondateurs, origine des capitaux, financement, site — à partir de sources publiques, sans rien inventer. Seul endroit où sont décrites ces règles : les skills veille-offres, linkedin-veille et nouvelle-offre-jobhunt s'en servent. À utiliser quand je dis « fais la fiche de Pigment » (ou toute autre entreprise), « complète les fiches entreprises », « /fiche-entreprise ».
 ---
 
 # Fiche entreprise

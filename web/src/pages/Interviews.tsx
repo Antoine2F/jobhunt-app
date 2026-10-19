@@ -1,73 +1,85 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { Company, Interview, Offer, Process } from "@jobhunt/core";
+import type { Company, HomeView, Interview, Offer, Process } from "@jobhunt/core";
+import { resultOf, STEP_RESULT_LABEL } from "@jobhunt/core/pipeline";
 import { useApi } from "../api";
-import { fmtDate, INTERVIEW_STATUS, relDays } from "../labels";
+import { fmtDate } from "../labels";
 import { Loading } from "../ui";
 
+/** Les étapes des pistes : celle en cours de chaque piste, et l'historique des retours. */
 export function InterviewsPage() {
-  const [tab, setTab] = useState<"to_prepare" | "done">("to_prepare");
+  const [tab, setTab] = useState<"current" | "history">("current");
+  const home = useApi<HomeView>("/home");
   const interviews = useApi<Interview[]>("/interviews");
   const processes = useApi<Process[]>("/processes");
   const offers = useApi<Offer[]>("/offers");
   const companies = useApi<Company[]>("/companies");
-  if (!interviews.data || !processes.data || !offers.data || !companies.data) {
-    return <Loading error={interviews.error ?? offers.error} loading />;
+  if (!home.data || !interviews.data || !processes.data || !offers.data || !companies.data) {
+    return <Loading error={home.error ?? interviews.error} loading />;
   }
 
   const proc = new Map(processes.data.map((p) => [p.id, p]));
   const offer = new Map(offers.data.map((o) => [o.id, o]));
   const company = new Map(companies.data.map((c) => [c.id, c]));
-  const list = interviews.data
-    .filter((i) => (tab === "done" ? i.status !== "to_prepare" : i.status === "to_prepare"))
-    .sort((a, b) => {
-      const cmp = (a.scheduled_at ?? "9999").localeCompare(b.scheduled_at ?? "9999");
-      return tab === "done" ? -cmp : cmp;
-    });
+  const history = interviews.data
+    .filter((i) => ["positive", "negative"].includes(resultOf(i)))
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 
   return (
     <>
       <h1>Entretiens</h1>
       <div className="tabs">
-        <button className={tab === "to_prepare" ? "active" : ""} onClick={() => setTab("to_prepare")}>
-          À préparer
+        <button className={tab === "current" ? "active" : ""} onClick={() => setTab("current")}>
+          Étapes en cours
         </button>
-        <button className={tab === "done" ? "active" : ""} onClick={() => setTab("done")}>
-          Faits
+        <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>
+          Retours reçus
         </button>
       </div>
-      {list.length === 0 && <p className="empty">Aucun entretien.</p>}
-      <div className="stack">
-        {list.map((i) => {
-          const o = offer.get(proc.get(i.process_id)?.offer_id ?? "");
-          const c = o?.company_id ? company.get(o.company_id) : undefined;
-          return (
-            <Link key={i.id} to={o ? `/offres/${o.id}` : "/offres"} className="card deadline">
-              <div className="when">
-                {i.scheduled_at ? (
-                  <>
-                    <b>{relDays(i.scheduled_at)}</b>
-                    {fmtDate(i.scheduled_at, true)}
-                  </>
-                ) : (
-                  <b>Date à fixer</b>
-                )}
-              </div>
-              <div>
+
+      {tab === "current" && (
+        <div className="stack">
+          {home.data.leads.length === 0 && <p className="empty">Aucune piste en cours.</p>}
+          {home.data.leads.map(({ offer: o, company: c, current_step: s }) => (
+            <Link key={o.id} to={`/offres/${o.id}`} className="card">
+              <div className="spread">
                 <h3>
-                  {i.kind || "Entretien"} · {c?.name ?? "?"}
+                  {s?.kind ?? "Toutes les étapes franchies"} · {c?.name ?? "?"}
                 </h3>
-                <div className="muted small">
-                  {o?.title}
-                  {i.interviewers && ` · avec ${i.interviewers}`}
-                </div>
-                {tab === "done" && i.outcome && <div className="small">{i.outcome}</div>}
-                {tab === "done" && <span className="chip small">{INTERVIEW_STATUS[i.status]}</span>}
+                {s && <span className={`chip ${resultOf(s) === "waiting" ? "warn" : ""}`}>{STEP_RESULT_LABEL[resultOf(s)]}</span>}
+              </div>
+              <div className="muted small">
+                {o.title}
+                {s?.scheduled_at && ` · ${fmtDate(s.scheduled_at, true)}`}
+                {s?.interviewers && ` · avec ${s.interviewers}`}
               </div>
             </Link>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "history" && (
+        <div className="stack">
+          {history.length === 0 && <p className="empty">Aucun retour pour l'instant.</p>}
+          {history.map((i) => {
+            const o = offer.get(proc.get(i.process_id)?.offer_id ?? "");
+            const c = o?.company_id ? company.get(o.company_id) : undefined;
+            const r = resultOf(i);
+            return (
+              <Link key={i.id} to={o ? `/offres/${o.id}` : "/offres"} className="card">
+                <div className="spread">
+                  <h3>
+                    {i.kind || "Étape"} · {c?.name ?? "?"}
+                  </h3>
+                  <span className={`chip ${r === "positive" ? "ok" : "danger"}`}>{STEP_RESULT_LABEL[r]}</span>
+                </div>
+                <div className="muted small">{o?.title}</div>
+                {i.outcome && <div className="small">{i.outcome}</div>}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }
