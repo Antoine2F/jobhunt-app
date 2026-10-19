@@ -74,6 +74,8 @@ CREATE TABLE dbo.[interviews] (
   updated_at DATETIMEOFFSET NOT NULL
 );
 IF COL_LENGTH(N'dbo.[interviews]', N'process_id') IS NULL ALTER TABLE dbo.[interviews] ADD [process_id] NVARCHAR(36) NULL;
+IF COL_LENGTH(N'dbo.[interviews]', N'position') IS NULL ALTER TABLE dbo.[interviews] ADD [position] INT NULL;
+IF COL_LENGTH(N'dbo.[interviews]', N'result') IS NULL ALTER TABLE dbo.[interviews] ADD [result] NVARCHAR(20) NULL;
 IF COL_LENGTH(N'dbo.[interviews]', N'scheduled_at') IS NULL ALTER TABLE dbo.[interviews] ADD [scheduled_at] DATETIMEOFFSET NULL;
 IF COL_LENGTH(N'dbo.[interviews]', N'kind') IS NULL ALTER TABLE dbo.[interviews] ADD [kind] NVARCHAR(80) NULL;
 IF COL_LENGTH(N'dbo.[interviews]', N'interviewers') IS NULL ALTER TABLE dbo.[interviews] ADD [interviewers] NVARCHAR(400) NULL;

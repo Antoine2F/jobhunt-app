@@ -11,6 +11,7 @@ import {
   type OfferSource,
   type OfferStatus,
   type ProcessStage,
+  type StepResult,
   type Row,
   type TableName,
 } from "./schema.js";
@@ -142,11 +143,15 @@ export async function reviewCompany(store: Store, id: string, info: CompanyInfo 
 
 // --- Reprise de l'historique -----------------------------------------------
 
+/** Une étape de piste (entretien) ; `kind` est son nom, ex. « Step 1 (HR) ». */
 export interface ImportInterview {
   scheduled_at?: string | null;
   kind?: string | null;
+  position?: number | null;
+  result?: StepResult | null;
   interviewers?: string | null;
-  status: InterviewStatus;
+  /** Déduit de `result` s'il est absent. */
+  status?: InterviewStatus;
   prep_path?: string | null;
   notes?: string | null;
   outcome?: string | null;
@@ -265,7 +270,8 @@ async function runImport(store: Store, bundle: ImportBundle): Promise<Omit<Impor
 
       for (const [j, iv] of (p.interviews ?? []).entries()) {
         await located(`interviews[${j}]`, async () => {
-          const fields = defined({ ...iv });
+          const status = iv.status ?? (!iv.result || iv.result === "to_plan" ? "to_prepare" : "done");
+          const fields = defined({ ...iv, status });
           const r = await upsert(
             store,
             "interviews",

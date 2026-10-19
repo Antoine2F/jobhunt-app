@@ -14,20 +14,24 @@ export const OFFER_STATUSES = [
 
 export const PROCESS_STAGES = [
   "to_apply", // retenue, candidature pas encore envoyée
-  "applied",
+  "applied", // postulé, en attente de retour
+  "lead", // piste : retour positif, les étapes sont dans interviews
+  "won", // offre acceptée
+  // Anciennes valeurs, lues comme « piste » (screening… offer) ou comme un arrêt (lost, withdrawn).
   "screening",
   "interviews",
   "case_study",
   "final",
   "offer",
-  "won",
-  // Anciennes valeurs : un arrêt s'enregistre maintenant dans processes.outcome.
   "lost",
   "withdrawn",
 ] as const;
 
-/** Comment un processus s'est arrêté (une offre acceptée est l'étape « won »). */
+/** Comment un processus s'est arrêté : refus (CV refusé, ou piste en échec) ou retrait. */
 export const PROCESS_OUTCOMES = ["lost", "withdrawn", "no_answer"] as const;
+
+/** État d'une étape de piste (entretien RH, manager…). */
+export const STEP_RESULTS = ["to_plan", "waiting", "positive", "negative"] as const;
 
 export const INTERVIEW_STATUSES = ["to_prepare", "done", "cancelled"] as const;
 export const MEETING_STATUSES = ["to_see", "planned", "seen", "cancelled"] as const;
@@ -64,6 +68,7 @@ export const COMPANY_SECTORS = [
 export type OfferStatus = (typeof OFFER_STATUSES)[number];
 export type ProcessStage = (typeof PROCESS_STAGES)[number];
 export type ProcessOutcome = (typeof PROCESS_OUTCOMES)[number];
+export type StepResult = (typeof STEP_RESULTS)[number];
 export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
 export type MeetingStatus = (typeof MEETING_STATUSES)[number];
 export type IntroStatus = (typeof INTRO_STATUSES)[number];
@@ -125,8 +130,11 @@ export const TABLES = {
     contact_name: { type: "string", max: 200 },
     notes: { type: "text" },
   },
+  // Étapes d'une piste (« Step 1 (HR) »…) : une ligne par étape, nom dans `kind`.
   interviews: {
     process_id: { type: "string", required: true, max: 36 },
+    position: { type: "int" }, // ordre dans la piste
+    result: { type: "string", enum: STEP_RESULTS, max: 20 },
     scheduled_at: { type: "datetime" },
     kind: { type: "string", max: 80 },
     interviewers: { type: "string", max: 400 },

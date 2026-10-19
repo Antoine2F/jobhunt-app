@@ -19,7 +19,7 @@ api/      API HTTP : Azure Functions (fonctions gérées par Static Web Apps) + 
 web/      interface React (Vite), PWA
 db/       schéma SQL généré (npx tsx scripts/gen-schema.ts)
 infra/    Bicep + script de déploiement Azure
-skills/   skills Claude Desktop : veille des alertes e-mail (tâche planifiée), veille LinkedIn (computer use), reprise de l'historique, ajout d'une offre analysée, fiche entreprise, dossier de candidature
+skills/   skills Claude Desktop : veille des alertes e-mail (tâche planifiée), veille LinkedIn (computer use), reprise de l'historique, ajout d'une offre analysée, fiche entreprise, dossier de candidature, mise à jour complète (maj)
 ```
 
 | Brique | Service | Coût attendu |
@@ -74,16 +74,16 @@ L'appli est protégée par la connexion GitHub de Static Web Apps, et l'API n'ac
 
 ## Parcours d'une offre
 
-Chaque offre suit un seul fil d'étapes, affiché en haut de sa page :
+**Nouvelle › Intéressante › À postuler › Postulé › Piste › Offre acceptée**, en haut de la page de chaque offre.
 
-**Nouvelle › Intéressante › À postuler › Candidature envoyée › Entretien RH › Entretiens › Cas pratique › Dernier tour › Offre reçue › Acceptée**
-
-- Le bouton principal passe à l'étape suivante ; un clic sur une étape plus loin y va directement (« j'ai candidaté et j'ai eu l'entretien RH » = un clic sur « Entretien RH »).
-- Les sorties s'enregistrent à l'étape où elles arrivent : *pas intéressante*, *je ne postule pas*, *refusé* / *recalé*, *sans réponse*, *je me retire*. Un clic sur une étape rouvre l'offre (pour corriger une erreur).
-- L'accueil et la page Offres regroupent les offres en **nouvelles** (les dernières arrivées en tête), **intéressantes**, **à postuler**, **candidatures en attente** (pas encore de réponse) et **pistes** (l'entreprise a manifesté son intérêt : entretien RH ou plus loin).
-- **Réseau** : la démarche réseau (trouver quelqu'un qui recommande ou présente) s'active par offre, en parallèle de la candidature. Elle fait apparaître les contacts de ton réseau liés à l'entreprise et des recherches LinkedIn préremplies.
-- **Candidater** : à l'étape « À postuler », les boutons *Générer la lettre* et *Préparer le CV* ouvrent Claude avec la demande prête ; le skill `dossier-candidature` crée les documents dans Google Drive (`Recherche d'emploi/Candidatures/…`) et les relie à l'offre.
-- **Doublons** : une offre au même intitulé dans la même entreprise n'est plus créée par la veille ; les doublons déjà présents sont signalés et se fusionnent depuis la page de l'offre (entretiens et rencontres rattachés, étape la plus avancée gardée).
+- **Avant de postuler** : un bouton pour avancer (« Intéressante », « Je postule », « J'ai postulé ») et un pour sortir (« Pas intéressante », « Je ne postule pas »).
+- **Postulé** : *en attente retour*, *retour positif* (l'offre devient une **piste**) ou *retour négatif* (**CV refusé**).
+- **Piste** : des étapes `Step 1 (HR)`, `Step 2 (Recr. Mgr)`, `Step 3 (UC)`, `Step 4 (culture)` créées par défaut, renommables, et on peut en ajouter. Chaque étape est *à planifier*, *en attente retour*, *retour positif* ou *retour négatif* ; un retour négatif met la piste **en échec** (le corriger la rouvre).
+- **Accueil** : nouvelles offres (les dernières arrivées en tête), intéressantes, à postuler, en attente de retour, pistes ; liens vers les offres non considérées, les CV refusés et les pistes en échec ; les rencontres réseau à part.
+- **Réseau** : la démarche réseau (trouver quelqu'un qui recommande ou présente) s'active par offre, en parallèle de la candidature.
+- **Candidater** : à l'étape « À postuler », *Générer la lettre* et *Préparer le CV* ouvrent Claude avec la demande prête ; le skill `dossier-candidature` crée les documents dans Google Drive (`job/candidatures/…`, à partir du CV de `job/cv`) et les relie à l'offre.
+- **Doublons** : une offre au même intitulé dans la même entreprise n'est plus créée par la veille ; les doublons déjà présents sont signalés et se fusionnent depuis la page de l'offre.
+- **Mise à jour** : le skill `maj` lance la veille, puis lit Gmail et l'agenda pour faire avancer les offres (candidatures envoyées, retours positifs et négatifs, étapes passées) et ajouter les rencontres réseau, après validation.
 
 Une offre analysée dans une conversation Claude (process « nouvelle offre ») arrive directement **À postuler** par le skill `nouvelle-offre-jobhunt`.
 

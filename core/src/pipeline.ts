@@ -1,67 +1,83 @@
-// Le parcours d'une offre, de la première lecture à l'issue, en une seule liste
-// d'étapes. Chaque étape peut être franchie (étape suivante) ou être une sortie
-// (pas intéressante, refus…). Utilisé par l'API et par le site : ce fichier ne
-// dépend que des types du schéma.
-import type { Offer, OfferStatus, Process, ProcessOutcome, ProcessStage } from "./schema.js";
+// Le parcours d'une offre, de la première lecture à l'issue. Utilisé par l'API
+// et par le site : ce fichier ne dépend que des types du schéma.
+//
+// Nouvelle › Intéressante › À postuler › Postulé › Piste › Offre acceptée
+// - Postulé : en attente de retour, retour positif (→ piste), retour négatif (CV refusé).
+// - Piste : des étapes renommables (« Step 1 (HR) »…), chacune à planifier,
+//   en attente de retour, retour positif ou retour négatif (→ piste en échec).
+import type { Interview, Offer, OfferStatus, Process, ProcessStage, StepResult } from "./schema.js";
 
 export const STEPS = [
   { key: "new", label: "Nouvelle" },
   { key: "interesting", label: "Intéressante" },
   { key: "to_apply", label: "À postuler" },
-  { key: "applied", label: "Candidature envoyée" },
-  { key: "screening", label: "Entretien RH" },
-  { key: "interviews", label: "Entretiens" },
-  { key: "case_study", label: "Cas pratique" },
-  { key: "final", label: "Dernier tour" },
-  { key: "offer", label: "Offre reçue" },
-  { key: "won", label: "Acceptée" },
+  { key: "applied", label: "Postulé" },
+  { key: "lead", label: "Piste" },
+  { key: "won", label: "Offre acceptée" },
 ] as const;
 
 export type Step = (typeof STEPS)[number]["key"];
-export type Exit = "rejected" | "not_applying" | ProcessOutcome;
+export type Exit = "rejected" | "not_applying" | "lost" | "withdrawn";
 
 export const STEP_LABEL = Object.fromEntries(STEPS.map((s) => [s.key, s.label])) as Record<Step, string>;
 
 export const EXIT_LABEL: Record<Exit, string> = {
   rejected: "Pas intéressante",
   not_applying: "Je ne postule pas",
-  no_answer: "Sans réponse",
-  lost: "Refusé",
+  lost: "Retour négatif",
   withdrawn: "Je me suis retiré",
 };
 
-/** Les grandes familles, pour l'accueil et les onglets. */
+/** États d'une étape de piste, dans l'ordre où on les traverse. */
+export const STEP_RESULT_LABEL: Record<StepResult, string> = {
+  to_plan: "À planifier",
+  waiting: "En attente retour",
+  positive: "Retour positif",
+  negative: "Retour négatif",
+};
+
+/** Étapes créées pour chaque nouvelle piste ; renommables, et on peut en ajouter. */
+export const DEFAULT_LEAD_STEPS = ["Step 1 (HR)", "Step 2 (Recr. Mgr)", "Step 3 (UC)", "Step 4 (culture)"];
+
+/** Les familles d'offres, pour l'accueil et les onglets. */
 export const CATEGORIES = [
   { key: "new", label: "Nouvelles offres" },
   { key: "interesting", label: "Offres intéressantes" },
   { key: "to_apply", label: "À postuler" },
-  { key: "waiting", label: "Candidatures en attente" },
+  { key: "waiting", label: "En attente de retour" },
   { key: "lead", label: "Pistes" },
-  { key: "closed", label: "Terminées" },
+  { key: "won", label: "Offres acceptées" },
+  { key: "not_considered", label: "Offres non considérées" },
+  { key: "cv_refused", label: "CV refusés" },
+  { key: "lead_failed", label: "Pistes en échec" },
 ] as const;
 export type Category = (typeof CATEGORIES)[number]["key"];
 
+/** Familles en cours (tuiles de l'accueil) ; les autres sont des issues. */
+export const OPEN_CATEGORIES: Category[] = ["new", "interesting", "to_apply", "waiting", "lead"];
+
 export interface PipelineState {
-  /** Dernière étape atteinte. */
   step: Step;
   /** Sortie, si le parcours s'est arrêté à cette étape. */
   exit: Exit | null;
 }
 
-const PROCESS_STEPS: Step[] = ["applied", "screening", "interviews", "case_study", "final", "offer", "won"];
-
 export function stepIndex(step: Step) {
   return STEPS.findIndex((s) => s.key === step);
 }
+
+const LEAD_STAGES = new Set<string>(["lead", "screening", "interviews", "case_study", "final", "offer"]);
 
 /** Où en est une offre, d'après son statut et son processus (y compris les données anciennes). */
 export function stateOf(offer: Pick<Offer, "status">, process?: Pick<Process, "stage" | "outcome"> | null): PipelineState {
   if (process && process.stage !== "to_apply") {
     const stage = process.stage as ProcessStage;
-    // Ancien format : l'arrêt était une étape ; on ne sait plus où il a eu lieu.
+    // Ancien format : l'arrêt était une étape.
     if (stage === "lost" || stage === "withdrawn") return { step: "applied", exit: stage };
-    const exit = (process.outcome as ProcessOutcome | null | undefined) ?? (offer.status === "closed" && stage !== "won" ? "lost" : null);
-    return { step: stage as Step, exit };
+    const step: Step = stage === "won" ? "won" : LEAD_STAGES.has(stage) ? "lead" : "applied";
+    const outcome = process.outcome === "no_answer" ? "lost" : process.outcome;
+    const exit = (outcome as Exit | null | undefined) ?? (offer.status === "closed" && step !== "won" ? "lost" : null);
+    return { step, exit };
   }
   const byStatus: Record<OfferStatus, PipelineState> = {
     proposed: { step: "new", exit: null },
@@ -76,12 +92,13 @@ export function stateOf(offer: Pick<Offer, "status">, process?: Pick<Process, "s
 }
 
 export function categoryOf(state: PipelineState): Category {
-  if (state.exit || state.step === "won") return "closed";
-  if (state.step === "new" || state.step === "interesting" || state.step === "to_apply") return state.step;
-  return state.step === "applied" ? "waiting" : "lead";
+  if (state.exit === "rejected" || state.exit === "not_applying") return "not_considered";
+  if (state.exit) return state.step === "lead" ? "lead_failed" : "cv_refused";
+  if (state.step === "applied") return "waiting";
+  return state.step;
 }
 
-/** Sorties possibles depuis une étape, avec le libellé du bouton. */
+/** Sorties proposées depuis une étape (Postulé et Piste ont leurs propres boutons de retour). */
 export function exitsFor(step: Step): { exit: Exit; label: string }[] {
   switch (step) {
     case "new":
@@ -89,24 +106,30 @@ export function exitsFor(step: Step): { exit: Exit; label: string }[] {
     case "interesting":
     case "to_apply":
       return [{ exit: "not_applying", label: "Je ne postule pas" }];
-    case "applied":
-      return [
-        { exit: "lost", label: "Refusé" },
-        { exit: "no_answer", label: "Sans réponse" },
-        { exit: "withdrawn", label: "Je me retire" },
-      ];
-    case "offer":
-      return [{ exit: "withdrawn", label: "Je décline" }];
-    case "won":
-      return [];
+    case "lead":
+      return [{ exit: "withdrawn", label: "Je me retire" }];
     default:
-      return [
-        { exit: "lost", label: "Recalé" },
-        { exit: "withdrawn", label: "Je me retire" },
-      ];
+      return [];
   }
 }
 
-export function isProcessStep(step: Step) {
-  return PROCESS_STEPS.includes(step);
+/** Résultat d'une étape, y compris pour les entretiens saisis avant les étapes de piste. */
+export function resultOf(i: Pick<Interview, "result" | "status">): StepResult {
+  if (i.result) return i.result as StepResult;
+  return i.status === "done" ? "positive" : "to_plan";
+}
+
+/** Étapes d'une piste dans l'ordre. */
+export function sortSteps<T extends Pick<Interview, "position" | "scheduled_at" | "created_at">>(steps: T[]): T[] {
+  return [...steps].sort(
+    (a, b) =>
+      (a.position ?? 999) - (b.position ?? 999) ||
+      (a.scheduled_at ?? "9999").localeCompare(b.scheduled_at ?? "9999") ||
+      a.created_at.localeCompare(b.created_at),
+  );
+}
+
+/** L'étape en cours d'une piste : la première qui n'a pas encore de retour positif. */
+export function currentStep<T extends Pick<Interview, "position" | "scheduled_at" | "created_at" | "result" | "status">>(steps: T[]): T | null {
+  return sortSteps(steps).find((s) => resultOf(s) !== "positive") ?? null;
 }

@@ -41,7 +41,6 @@ Le payload de l'offre déjà extrait (dans la conversation ou fourni en argument
 | `source` | non | `linkedin`, `wttj`, `cabinet`, `manual`, `network`, `other` (défaut : `manual`) |
 | `source_detail` | non | ex. « Annonce LinkedIn », « Envoyée par X » |
 | `company_info` | non | voir le skill `fiche-entreprise` : `description`, `sector`, `size`, `headquarters`, `dev_offices`, `founders_nationality`, `capital_origin`, `funding`, `website` |
-| `next_step`, `next_step_date` | non | ex. « Postuler », `AAAA-MM-JJ` (date limite si connue) |
 | `notes` | non | synthèse de l'analyse : score, points forts, points de vigilance |
 
 Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends. N'invente rien : un champ inconnu est omis, jamais envoyé à `null`.
@@ -65,7 +64,6 @@ Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends
          "company_info": { "description": "Paiement fractionné pour les commerçants", "sector": "Fintech / Banque / Assurance",
                           "size": "400 salariés", "headquarters": "Paris, France", "founders_nationality": "Française" },
          "stage": "to_apply",
-         "next_step": "Postuler",
          "notes": "Score 78/100. Points forts : … Vigilance : …"
        }
      ]

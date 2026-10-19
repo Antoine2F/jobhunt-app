@@ -5,9 +5,9 @@ import type { PipelineState } from "@jobhunt/core/pipeline";
 // Seul le schéma est importé en valeur : le reste du noyau dépend de Node.
 import { COMPANY_SECTORS } from "@jobhunt/core/schema";
 import { api, useApi } from "../api";
-import { companyFacts, fmtDate, fromLocalInput, INTERVIEW_STATUS, MEETING_STATUS, SOURCE, toLocalInput } from "../labels";
-import { Pipeline, stateLabel, type Move } from "../Pipeline";
-import { formData, Loading, Score, Select, useToast } from "../ui";
+import { companyFacts, fmtDate, fromLocalInput, MEETING_STATUS, SOURCE, toLocalInput } from "../labels";
+import { LeadSteps, Pipeline, stateLabel, type Move } from "../Pipeline";
+import { formData, Loading, Score, useToast } from "../ui";
 
 interface Detail {
   offer: Offer;
@@ -120,8 +120,10 @@ export function OfferDetailPage() {
       {offer.description && <p>{offer.description}</p>}
 
       {company && <CompanyCard company={company} onSaved={reload} />}
+      {state.step === "lead" && (
+        <LeadSteps offerId={offer.id} steps={interviews} onChange={reload} details={(s) => <StepDetails step={s} onSaved={reload} />} />
+      )}
       {process && <ProcessCard process={process} onSaved={reload} />}
-      {process && <Interviews processId={process.id} interviews={interviews} onChange={reload} />}
 
       {(network || meetings.length > 0) && (
         <>
@@ -196,7 +198,7 @@ function ApplyKit({ offer, company, onSaved }: { offer: Offer; company: Company 
           )}
         </div>
         <p className="small muted" style={{ margin: "8px 0 0" }}>
-          Claude crée les documents dans Google Drive (dossier « Recherche d'emploi / Candidatures ») et les relie à l'offre : recharge la page
+          Claude crée les documents dans Google Drive (dossier « job / candidatures ») à partir du CV de « job / cv », et les relie à l'offre : recharge la page
           ensuite.
         </p>
         <details style={{ marginTop: 6 }}>
@@ -305,9 +307,8 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
 function ProcessCard({ process, onSaved }: { process: Process; onSaved: () => void }) {
   const toast = useToast();
   async function save(e: React.FormEvent<HTMLFormElement>) {
-    const f = formData(e);
-    await api(`/processes/${process.id}`, { method: "PATCH", body: f });
-    toast("Processus enregistré");
+    await api(`/processes/${process.id}`, { method: "PATCH", body: formData(e) });
+    toast("Enregistré");
     onSaved();
   }
   return (
@@ -317,14 +318,6 @@ function ProcessCard({ process, onSaved }: { process: Process; onSaved: () => vo
         <label>
           Contact RH / recruteur
           <input name="contact_name" defaultValue={process.contact_name ?? ""} />
-        </label>
-        <label>
-          Prochaine action
-          <input name="next_step" defaultValue={process.next_step ?? ""} placeholder="Relancer, envoyer le cas…" />
-        </label>
-        <label>
-          Pour le
-          <input name="next_step_date" type="date" defaultValue={process.next_step_date ?? ""} />
         </label>
         <label className="full">
           Notes
@@ -338,94 +331,48 @@ function ProcessCard({ process, onSaved }: { process: Process; onSaved: () => vo
   );
 }
 
-function Interviews({ processId, interviews, onChange }: { processId: string; interviews: Interview[]; onChange: () => void }) {
-  const [adding, setAdding] = useState(false);
+/** Détails d'une étape de piste : date si elle est connue, interlocuteurs, préparation, compte rendu. */
+function StepDetails({ step, onSaved }: { step: Interview; onSaved: () => void }) {
   const toast = useToast();
-  const sorted = [...interviews].sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? ""));
-
-  async function save(e: React.FormEvent<HTMLFormElement>, id?: string) {
+  async function save(e: React.FormEvent<HTMLFormElement>) {
     const f = formData(e);
-    const body = { ...f, scheduled_at: fromLocalInput(f.scheduled_at ?? ""), process_id: processId };
-    if (id) await api(`/interviews/${id}`, { method: "PATCH", body });
-    else await api(`/interviews`, { method: "POST", body });
-    toast("Entretien enregistré");
-    setAdding(false);
-    onChange();
+    await api(`/interviews/${step.id}`, { method: "PATCH", body: { ...f, scheduled_at: fromLocalInput(f.scheduled_at ?? "") } });
+    toast("Étape enregistrée");
+    onSaved();
   }
-
+  const summary = [step.scheduled_at && fmtDate(step.scheduled_at, true), step.interviewers && `avec ${step.interviewers}`].filter(Boolean).join(" · ");
   return (
-    <>
-      <div className="spread" style={{ alignItems: "center" }}>
-        <h2>Entretiens</h2>
-        {!adding && <button onClick={() => setAdding(true)}>+ Entretien</button>}
-      </div>
-      {adding && <InterviewForm onSubmit={(e) => save(e)} onCancel={() => setAdding(false)} />}
-      {sorted.length === 0 && !adding && <p className="empty">Aucun entretien pour l'instant.</p>}
-      <div className="stack">
-        {sorted.map((i) => (
-          <details key={i.id} className="card">
-            <summary className="row" style={{ cursor: "pointer" }}>
-              <b>{i.kind || "Entretien"}</b>
-              <span className={`chip ${i.status === "to_prepare" ? "warn" : ""}`}>{INTERVIEW_STATUS[i.status]}</span>
-              <span className="muted small">{fmtDate(i.scheduled_at, true)}</span>
-              {i.interviewers && <span className="small">avec {i.interviewers}</span>}
-            </summary>
-            <div style={{ marginTop: 10 }}>
-              <InterviewForm interview={i} onSubmit={(e) => save(e, i.id)} />
-            </div>
-          </details>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function InterviewForm({
-  interview,
-  onSubmit,
-  onCancel,
-}: {
-  interview?: Interview;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-  onCancel?: () => void;
-}) {
-  return (
-    <form className="form" onSubmit={onSubmit} style={{ marginBottom: 10 }}>
-      <label>
-        Date et heure
-        <input name="scheduled_at" type="datetime-local" defaultValue={toLocalInput(interview?.scheduled_at)} />
-      </label>
-      <label>
-        Type
-        <input name="kind" defaultValue={interview?.kind ?? ""} placeholder="RH, manager, cas, pairs…" />
-      </label>
-      <label>
-        Avec
-        <input name="interviewers" defaultValue={interview?.interviewers ?? ""} />
-      </label>
-      <Select name="status" label="Statut" options={INTERVIEW_STATUS} defaultValue={interview?.status ?? "to_prepare"} />
-      <label className="full">
-        Fiche de préparation (chemin dans la base de connaissance)
-        <input name="prep_path" defaultValue={interview?.prep_path ?? ""} placeholder="entretiens/entreprise-manager.md" />
-      </label>
-      <label className="full">
-        Notes de préparation
-        <textarea name="notes" defaultValue={interview?.notes ?? ""} />
-      </label>
-      <label className="full">
-        Compte rendu / résultat
-        <textarea name="outcome" defaultValue={interview?.outcome ?? ""} />
-      </label>
-      <div className="row full">
-        <button className="primary">Enregistrer</button>
-        {onCancel && (
-          <button type="button" onClick={onCancel}>
-            Annuler
-          </button>
-        )}
-        {interview?.prep_path && <Link to={`/profil/${interview.prep_path}`}>Ouvrir la fiche</Link>}
-      </div>
-    </form>
+    <details style={{ marginTop: 8 }}>
+      <summary className="small" style={{ cursor: "pointer" }}>
+        Détails{summary && <span className="muted"> · {summary}</span>}
+      </summary>
+      <form className="form" onSubmit={save} key={step.updated_at} style={{ marginTop: 8 }}>
+        <label>
+          Date (si connue)
+          <input name="scheduled_at" type="datetime-local" defaultValue={toLocalInput(step.scheduled_at)} />
+        </label>
+        <label>
+          Avec
+          <input name="interviewers" defaultValue={step.interviewers ?? ""} />
+        </label>
+        <label className="full">
+          Fiche de préparation (chemin dans la base de connaissance)
+          <input name="prep_path" defaultValue={step.prep_path ?? ""} placeholder="entretiens/entreprise-manager.md" />
+        </label>
+        <label className="full">
+          Notes de préparation
+          <textarea name="notes" defaultValue={step.notes ?? ""} />
+        </label>
+        <label className="full">
+          Compte rendu
+          <textarea name="outcome" defaultValue={step.outcome ?? ""} />
+        </label>
+        <div className="row full">
+          <button className="primary">Enregistrer</button>
+          {step.prep_path && <Link to={`/profil/${step.prep_path}`}>Ouvrir la fiche</Link>}
+        </div>
+      </form>
+    </details>
   );
 }
 

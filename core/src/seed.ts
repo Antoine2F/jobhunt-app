@@ -9,7 +9,6 @@ const iso = (days: number, hour = 10) => {
   d.setHours(hour, 0, 0, 0);
   return d.toISOString();
 };
-const day = (days: number) => iso(days).slice(0, 10);
 const meta = (id: string) => ({ id, created_at: iso(-20), updated_at: iso(-1) });
 
 export function seedDemo(store: MemoryStore) {
@@ -55,16 +54,29 @@ export function seedDemo(store: MemoryStore) {
       ...meta("o-8"), company_id: "c-2", title: "VP Data", location: "Paris", source: "wttj",
       url_key: "wttj:fintech-demo/vp-data", status: "closed", score: 80, received_at: iso(-40),
     },
+    {
+      ...meta("o-9"), company_id: "c-3", title: "Consultant senior data", location: "Paris", source: "cabinet",
+      url_key: "title:conseil fictif|consultant senior data", status: "rejected", score: 15, score_reason: "ESN", received_at: iso(-6),
+    },
+    {
+      ...meta("o-10"), company_id: "c-1", title: "Product owner data", location: "La Défense", source: "linkedin",
+      url_key: "linkedin:1000000010", status: "closed", score: 65, received_at: iso(-30),
+    },
   ]);
   store.load("processes", [
-    { ...meta("p-1"), offer_id: "o-1", stage: "interviews", next_step: "Relancer la RH après le 2e entretien", next_step_date: day(5) },
-    { ...meta("p-2"), offer_id: "o-2", stage: "screening", next_step: "Envoyer le cas pratique", next_step_date: day(2) },
-    { ...meta("p-3"), offer_id: "o-7", stage: "applied", next_step: "Relancer si pas de nouvelles", next_step_date: day(6) },
-    { ...meta("p-4"), offer_id: "o-8", stage: "screening", outcome: "lost" },
+    { ...meta("p-1"), offer_id: "o-1", stage: "lead", contact_name: "Directrice data" },
+    { ...meta("p-2"), offer_id: "o-2", stage: "lead" },
+    { ...meta("p-3"), offer_id: "o-7", stage: "applied" },
+    { ...meta("p-4"), offer_id: "o-8", stage: "lead", outcome: "lost" },
+    { ...meta("p-5"), offer_id: "o-10", stage: "applied", outcome: "lost" },
   ]);
   store.load("interviews", [
-    { ...meta("i-1"), process_id: "p-1", scheduled_at: iso(-6, 14), kind: "RH", status: "done", outcome: "Bon feeling, process en 3 tours" },
-    { ...meta("i-2"), process_id: "p-1", scheduled_at: iso(3, 11), kind: "manager", interviewers: "Directrice data", status: "to_prepare", prep_path: "entretiens/exemple-energie-manager.md" },
+    { ...meta("i-1"), process_id: "p-1", position: 1, kind: "Step 1 (HR)", result: "positive", scheduled_at: iso(-6, 14), status: "done", outcome: "Bon feeling, process en 3 tours" },
+    { ...meta("i-2"), process_id: "p-1", position: 2, kind: "Step 2 (Recr. Mgr)", result: "waiting", interviewers: "Directrice data", status: "done", prep_path: "entretiens/exemple-energie-manager.md" },
+    { ...meta("i-3"), process_id: "p-1", position: 3, kind: "Step 3 (UC)", result: "to_plan", status: "to_prepare" },
+    { ...meta("i-4"), process_id: "p-1", position: 4, kind: "Step 4 (culture)", result: "to_plan", status: "to_prepare" },
+    { ...meta("i-5"), process_id: "p-2", position: 1, kind: "Step 1 (HR)", result: "to_plan", status: "to_prepare" },
+    { ...meta("i-6"), process_id: "p-4", position: 1, kind: "Step 1 (HR)", result: "negative", status: "done" },
   ]);
   store.load("people", [
     { ...meta("pe-1"), name: "Camille Exemple", company_id: "c-1", company_name: "Exemple Énergie", role: "Lead data engineer", strength: 2, tags: "data, énergie" },

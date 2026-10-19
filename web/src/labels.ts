@@ -1,9 +1,3 @@
-export const INTERVIEW_STATUS: Record<string, string> = {
-  to_prepare: "À préparer",
-  done: "Fait",
-  cancelled: "Annulé",
-};
-
 export const MEETING_STATUS: Record<string, string> = {
   to_see: "À voir",
   planned: "Planifiée",

@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   applyIngest,
+  addStep,
   categoryOf,
-  exitsFor,
+  currentStep,
+  DEFAULT_LEAD_STEPS,
+  resultOf,
+  setStepResult,
+  sortSteps,
   findDuplicates,
   mergeOffers,
   moveOffer,
@@ -72,17 +77,23 @@ describe("applyIngest", () => {
 });
 
 describe("buildHome", () => {
-  it("compte les offres par famille et trie les échéances", async () => {
+  it("compte les offres par famille et donne l'étape en cours des pistes", async () => {
     const store = new MemoryStore();
     seedDemo(store);
     const home = await buildHome(store);
-    expect(home.counts).toEqual({ new: 2, interesting: 1, to_apply: 1, waiting: 1, lead: 2, closed: 1 });
+    expect(home.counts).toEqual({
+      new: 2,
+      interesting: 1,
+      to_apply: 1,
+      waiting: 1,
+      lead: 2,
+      won: 0,
+      not_considered: 1,
+      cv_refused: 1,
+      lead_failed: 1,
+    });
     expect(home.leads.map((l) => l.offer.id).sort()).toEqual(["o-1", "o-2"]);
-    expect(home.deadlines.length).toBeGreaterThanOrEqual(3);
-    const dates = home.deadlines.map((d) => d.date);
-    expect([...dates].sort()).toEqual(dates);
-    // Les rencontres réseau sont à part.
-    expect(home.deadlines.every((d) => d.kind !== "meeting")).toBe(true);
+    expect(home.leads.find((l) => l.offer.id === "o-1")!.current_step!.kind).toBe("Step 2 (Recr. Mgr)");
     expect(home.network.deadlines).toHaveLength(1);
     // Nouvelles offres : la plus récente d'abord, quel que soit le score.
     expect(home.latest.map((l) => l.offer.id)).toEqual(["o-4", "o-3"]);
@@ -118,30 +129,45 @@ describe("knowledge", () => {
 });
 
 describe("parcours d'une offre", () => {
-  it("avance de plusieurs étapes en un clic puis s'arrête là où ça s'est arrêté", async () => {
+  it("postulé : en attente, puis retour positif (piste avec ses étapes) ou négatif (CV refusé)", async () => {
     const store = new MemoryStore();
     seedDemo(store);
-    // Nouvelle → intéressante → à postuler.
     expect((await moveOffer(store, "o-3", { step: "interesting" }))!.state).toEqual({ step: "interesting", exit: null });
-    // « J'ai candidaté, j'ai eu un entretien RH… »
-    const rh = (await moveOffer(store, "o-3", { step: "screening" }))!;
-    expect(rh.offer.status).toBe("applied");
-    expect(rh.process!.stage).toBe("screening");
-    expect(categoryOf(rh.state)).toBe("lead");
-    // « … et j'ai été recalé. »
-    const lost = (await moveOffer(store, "o-3", { exit: "lost" }))!;
-    expect(lost.state).toEqual({ step: "screening", exit: "lost" });
-    expect(lost.offer.status).toBe("closed");
-    // Correction : on rouvre en revenant à l'étape.
-    expect((await moveOffer(store, "o-3", { step: "screening" }))!.state).toEqual({ step: "screening", exit: null });
+    const applied = (await moveOffer(store, "o-3", { step: "applied" }))!;
+    expect(categoryOf(applied.state)).toBe("waiting");
+    // Retour négatif : CV refusé.
+    expect(categoryOf((await moveOffer(store, "o-3", { exit: "lost" }))!.state)).toBe("cv_refused");
+    // Correction : retour positif → piste, avec les étapes par défaut.
+    const lead = (await moveOffer(store, "o-3", { step: "lead" }))!;
+    expect(categoryOf(lead.state)).toBe("lead");
+    const steps = sortSteps((await store.list("interviews")).filter((i) => i.process_id === lead.process!.id));
+    expect(steps.map((s) => s.kind)).toEqual(DEFAULT_LEAD_STEPS);
+    expect(steps.every((s) => s.result === "to_plan")).toBe(true);
     expect((await store.list("processes")).filter((p) => p.offer_id === "o-3")).toHaveLength(1);
+  });
+
+  it("piste : un retour négatif sur une étape la met en échec, le corriger la rouvre", async () => {
+    const store = new MemoryStore();
+    seedDemo(store);
+    expect((await setStepResult(store, "i-2", "negative"))!.state).toEqual({ step: "lead", exit: "lost" });
+    expect((await store.get("offers", "o-1"))!.status).toBe("closed");
+    const back = (await setStepResult(store, "i-2", "positive"))!;
+    expect(categoryOf(back.state)).toBe("lead");
+    expect(back.offer.status).toBe("applied");
+    // Étape suivante : la 3e, à planifier ; on peut en ajouter une 5e.
+    const step = (await addStep(store, "o-1", "Step 5 (CEO)"))!;
+    expect(step.position).toBe(5);
+    const all = (await store.list("interviews")).filter((i) => i.process_id === "p-1");
+    expect(currentStep(all)!.kind).toBe("Step 3 (UC)");
   });
 
   it("lit les anciennes données", () => {
     expect(stateOf({ status: "closed" }, { stage: "lost", outcome: null })).toEqual({ step: "applied", exit: "lost" });
+    expect(stateOf({ status: "applied" }, { stage: "interviews", outcome: null })).toEqual({ step: "lead", exit: null });
+    expect(stateOf({ status: "closed" }, { stage: "applied", outcome: "no_answer" })).toEqual({ step: "applied", exit: "lost" });
     expect(stateOf({ status: "validated" }, { stage: "to_apply", outcome: null })).toEqual({ step: "to_apply", exit: null });
     expect(stateOf({ status: "rejected" }, null)).toEqual({ step: "new", exit: "rejected" });
-    expect(exitsFor("screening").map((e) => e.exit)).toEqual(["lost", "withdrawn"]);
+    expect(resultOf({ result: null, status: "done" })).toBe("positive");
   });
 });
 
@@ -168,7 +194,7 @@ describe("doublons", () => {
     expect(merged.status).toBe("applied");
     expect(await store.get("offers", "o-1")).toBeNull();
     const proc = (await store.list("processes")).find((p) => p.offer_id === "o-4")!;
-    expect(proc.stage).toBe("interviews");
-    expect((await store.list("interviews")).filter((i) => i.process_id === proc.id)).toHaveLength(2);
+    expect(proc.stage).toBe("lead");
+    expect((await store.list("interviews")).filter((i) => i.process_id === proc.id)).toHaveLength(4);
   });
 });

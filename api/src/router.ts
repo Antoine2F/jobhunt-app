@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import {
   affinitiesFromEnv,
+  addStep,
   applyIngest,
   buildHome,
   ConflictError,
@@ -9,10 +10,12 @@ import {
   knowledgeFromEnv,
   listCompaniesForReview,
   listOffersForReview,
+  listPipeline,
   mergeOffers,
   moveOffer,
   parseConcept,
   sameOffer,
+  setStepResult,
   stateOf,
   reviewCompany,
   reviewOffer,
@@ -25,6 +28,7 @@ import {
   type IngestPayload,
   type Move,
   type OfferReview,
+  type StepResult,
   type Store,
   type TableName,
 } from "@jobhunt/core";
@@ -59,6 +63,32 @@ function isAllowed(req: ApiRequest, env: NodeJS.ProcessEnv): boolean {
     .filter(Boolean);
   // Liste vide = personne : on préfère échouer fermé.
   return allowed.includes(req.user.name.toLowerCase());
+}
+
+/** Routes du parcours, communes au site et aux skills (clé d'ingestion). */
+async function pipelineRoute(store: Store, m: string, parts: string[], body: unknown): Promise<ApiResponse | null> {
+  const [first, second, third] = parts;
+  // Aller à une étape ({ "step": "lead" }) ou s'arrêter ({ "exit": "lost" }).
+  if (first === "offers" && second && third === "move" && m === "POST") {
+    const res = await moveOffer(store, second, (body ?? {}) as Move);
+    return res ? ok(res) : err(404, "Offre introuvable");
+  }
+  // Ajouter une étape à une piste : { "name": "Step 5 (CEO)" }.
+  if (first === "offers" && second && third === "steps" && m === "POST") {
+    const step = await addStep(store, second, (body as { name?: string })?.name ?? "");
+    return step ? { status: 201, body: step } : err(404, "Piste introuvable");
+  }
+  // Retour d'une étape : { "result": "to_plan" | "waiting" | "positive" | "negative" },
+  // avec éventuellement la date et les interlocuteurs quand ils sont connus.
+  if (first === "steps" && second && third === "result" && m === "POST") {
+    const { result, scheduled_at, interviewers } = (body ?? {}) as { result?: StepResult; scheduled_at?: string; interviewers?: string };
+    const res = await setStepResult(store, second, result as StepResult);
+    if (!res) return err(404, "Étape introuvable");
+    const details = Object.fromEntries(Object.entries({ scheduled_at, interviewers }).filter(([, v]) => v));
+    if (Object.keys(details).length) await store.update("interviews", second, details);
+    return ok(res);
+  }
+  return null;
 }
 
 function hasIngestKey(req: ApiRequest, env: NodeJS.ProcessEnv): boolean {
@@ -132,6 +162,18 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
         const offer = await reviewOffer(store, third, (req.body ?? {}) as OfferReview);
         return offer ? ok({ offer }) : err(404, "Offre introuvable");
       }
+      // Suivi des candidatures par le skill « maj ».
+      if (second === "pipeline" && m === "GET") return ok({ offers: await listPipeline(store) });
+      if (second === "seen" && m === "POST") {
+        const { ids, source } = (req.body ?? {}) as { ids?: unknown; source?: string };
+        if (!Array.isArray(ids)) return err(400, "ids attendu");
+        for (const id of await unseenMessages(store, ids.map(String))) {
+          await store.insert("ingested_messages", { message_id: id, source: source ?? "maj", offers_found: 0 });
+        }
+        return ok({ recorded: ids.length });
+      }
+      const shared = await pipelineRoute(store, m, parts.slice(1), req.body);
+      if (shared) return shared;
       // Fiches entreprise : activité, effectif, financement… pour décider.
       if (second === "companies" && !third && m === "GET") {
         return ok({ companies: await listCompaniesForReview(store) });
@@ -186,11 +228,8 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
       return ok(await findDuplicates(store));
     }
 
-    // Parcours : aller à une étape ({ "step": "screening" }) ou s'arrêter ({ "exit": "lost" }).
-    if (first === "offers" && second && third === "move" && m === "POST") {
-      const res = await moveOffer(store, second, (req.body ?? {}) as Move);
-      return res ? ok(res) : err(404, "Offre introuvable");
-    }
+    const shared = await pipelineRoute(store, m, parts, req.body);
+    if (shared) return shared;
 
     // Fusionner un doublon dans cette offre : { "from": "<id du doublon>" }.
     if (first === "offers" && second && third === "merge" && m === "POST") {

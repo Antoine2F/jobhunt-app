@@ -1,9 +1,9 @@
-import { categoryOf, stateOf, type Category, type PipelineState } from "./pipeline.js";
+import { CATEGORIES, categoryOf, currentStep, stateOf, type Category, type PipelineState } from "./pipeline.js";
 import type { Company, Interview, Meeting, Offer, Person, Process } from "./schema.js";
 import type { Store } from "./store.js";
 
 export interface Deadline {
-  kind: "interview" | "process_step" | "meeting";
+  kind: "meeting";
   date: string;
   title: string;
   subtitle?: string;
@@ -17,15 +17,14 @@ export interface OfferCard {
   company: Company | null;
   process: Process | null;
   state: PipelineState;
-  next_interview: Interview | null;
+  /** Piste : l'étape en cours (la première sans retour positif). */
+  current_step: Interview | null;
 }
 
 export interface HomeView {
   today: string;
-  /** Nombre d'offres par famille (nouvelles, intéressantes, à postuler, en attente, pistes, terminées). */
+  /** Nombre d'offres par famille (nouvelles, intéressantes, à postuler, en attente, pistes, issues). */
   counts: Record<Category, number>;
-  /** Entretiens et prochaines actions des candidatures, sur l'horizon. */
-  deadlines: Deadline[];
   /** Pistes : l'entreprise a manifesté son intérêt. */
   leads: OfferCard[];
   /** Dernières offres arrivées, les plus récentes d'abord. */
@@ -41,13 +40,7 @@ export function arrivedAt(o: Offer) {
   return o.received_at ?? o.created_at;
 }
 
-/** Une candidature ou une piste est en cours (pas encore d'issue). */
-export function isActiveProcess(offer: Offer, p: Process) {
-  const c = categoryOf(stateOf(offer, p));
-  return c === "waiting" || c === "lead";
-}
-
-/** Vue d'accueil : où en sont les offres, et les prochaines échéances. */
+/** Vue d'accueil : où en sont les offres, et les rencontres réseau à venir. */
 export async function buildHome(store: Store, now = new Date(), horizonDays = 14): Promise<HomeView> {
   const [offers, companies, processes, interviews, people, meetings] = await Promise.all([
     store.list("offers"),
@@ -64,13 +57,6 @@ export async function buildHome(store: Store, now = new Date(), horizonDays = 14
   const horizon = new Date(now.getTime() + horizonDays * 86_400_000);
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
-  const within = (date: string) => new Date(date) <= horizon;
-  const deadline = (d: Omit<Deadline, "overdue">): Deadline => ({ ...d, overdue: new Date(d.date) < startOfToday });
-
-  const nextInterview = (processId: string): Interview | null =>
-    interviews
-      .filter((i) => i.process_id === processId && i.status === "to_prepare")
-      .sort((a, b) => (a.scheduled_at ?? "9999").localeCompare(b.scheduled_at ?? "9999"))[0] ?? null;
 
   const cards: OfferCard[] = offers.map((offer) => {
     const process = processByOffer.get(offer.id) ?? null;
@@ -79,58 +65,32 @@ export async function buildHome(store: Store, now = new Date(), horizonDays = 14
       company: offer.company_id ? (companyById.get(offer.company_id) ?? null) : null,
       process,
       state: stateOf(offer, process),
-      next_interview: process ? nextInterview(process.id) : null,
+      current_step: process ? currentStep(interviews.filter((i) => i.process_id === process.id)) : null,
     };
   });
-  const counts = { new: 0, interesting: 0, to_apply: 0, waiting: 0, lead: 0, closed: 0 } as Record<Category, number>;
+  const counts = Object.fromEntries(CATEGORIES.map((c) => [c.key, 0])) as Record<Category, number>;
   for (const c of cards) counts[categoryOf(c.state)]++;
 
-  const label = (c: OfferCard) => (c.company ? `${c.offer.title} · ${c.company.name}` : c.offer.title);
-  const deadlines: Deadline[] = [];
-  for (const c of cards) {
-    const cat = categoryOf(c.state);
-    if (!c.process || (cat !== "waiting" && cat !== "lead" && cat !== "to_apply")) continue;
-    for (const i of interviews) {
-      if (i.process_id !== c.process.id || i.status !== "to_prepare" || !i.scheduled_at || !within(i.scheduled_at)) continue;
-      deadlines.push(
-        deadline({ kind: "interview", date: i.scheduled_at, title: `Entretien${i.kind ? ` ${i.kind}` : ""}`, subtitle: label(c), link: `/offres/${c.offer.id}` }),
-      );
-    }
-    if (c.process.next_step_date && within(c.process.next_step_date)) {
-      deadlines.push(
-        deadline({
-          kind: "process_step",
-          date: c.process.next_step_date,
-          title: c.process.next_step || "Prochaine étape",
-          subtitle: label(c),
-          link: `/offres/${c.offer.id}`,
-        }),
-      );
-    }
-  }
-  deadlines.sort((a, b) => a.date.localeCompare(b.date));
-
-  const networkDeadlines = meetings
-    .filter((m: Meeting) => m.status === "planned" && m.planned_at && within(m.planned_at))
+  // Les seules dates connues d'avance sont celles des rencontres réseau planifiées.
+  const networkDeadlines: Deadline[] = meetings
+    .filter((m: Meeting) => m.status === "planned" && m.planned_at && new Date(m.planned_at) <= horizon)
     .map((m) => {
       const person = personById.get(m.person_id);
-      return deadline({
-        kind: "meeting",
+      return {
+        kind: "meeting" as const,
         date: m.planned_at!,
         title: `Rencontre : ${person?.name ?? "contact"}`,
         subtitle: m.topic ?? person?.company_name ?? undefined,
         link: `/reseau/${m.person_id}`,
-      });
+        overdue: new Date(m.planned_at!) < startOfToday,
+      };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return {
     today: now.toISOString(),
     counts,
-    deadlines,
-    leads: cards
-      .filter((c) => categoryOf(c.state) === "lead")
-      .sort((a, b) => (a.next_interview?.scheduled_at ?? a.process?.next_step_date ?? "9999").localeCompare(b.next_interview?.scheduled_at ?? b.process?.next_step_date ?? "9999")),
+    leads: cards.filter((c) => categoryOf(c.state) === "lead").sort((a, b) => b.offer.updated_at.localeCompare(a.offer.updated_at)),
     latest: cards
       .filter((c) => categoryOf(c.state) === "new")
       .sort((a, b) => arrivedAt(b.offer).localeCompare(arrivedAt(a.offer)))

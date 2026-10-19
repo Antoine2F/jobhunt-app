@@ -53,7 +53,15 @@ describe("router", () => {
     // Idempotent : pas de second processus
     await move({ step: "applied" });
     expect((await store.list("processes")).filter((p) => p.offer_id === "o-3")).toHaveLength(1);
-    expect(((await move({ exit: "no_answer" })).body as { state: unknown }).state).toEqual({ step: "applied", exit: "no_answer" });
+    expect(((await move({ exit: "lost" })).body as { state: unknown }).state).toEqual({ step: "applied", exit: "lost" });
+    // Retour positif : piste, et les étapes se renseignent une à une.
+    await move({ step: "lead" });
+    const proc = (await store.list("processes")).find((p) => p.offer_id === "o-3")!;
+    const step = (await store.list("interviews")).find((i) => i.process_id === proc.id && i.position === 1)!;
+    const failed = await handle(req("POST", `/steps/${step.id}/result`, { result: "negative" }), store, env);
+    expect((failed.body as { state: unknown }).state).toEqual({ step: "lead", exit: "lost" });
+    expect((await handle(req("POST", `/steps/${step.id}/result`, { result: "bof" }), store, env)).status).toBe(400);
+    expect((await handle(req("POST", "/offers/o-3/steps", { name: "Step 5 (CEO)" }), store, env)).status).toBe(201);
     expect((await move({ step: "nulle-part" })).status).toBe(400);
     expect((await handle(req("POST", "/offers/inconnue/move", { step: "new" }), store, env)).status).toBe(404);
   });
@@ -91,7 +99,7 @@ describe("router", () => {
     const store = setup();
     const detail = (await handle(req("GET", "/offers/o-1/detail"), store, env)).body as { interviews: unknown[]; company: { name: string } };
     expect(detail.company.name).toBe("Exemple Énergie");
-    expect(detail.interviews).toHaveLength(2);
+    expect(detail.interviews).toHaveLength(4);
     const sugg = await handle(req("GET", "/offers/o-4/suggestions"), store, env);
     expect(sugg.status).toBe(200);
   });
@@ -285,6 +293,21 @@ describe("router : choix de l'approche et fiches entreprise", () => {
     await call("PATCH", "/ingest/offers/o-1", { cover_letter_url: "https://docs.google.com/document/d/abc" });
     expect((await store.get("offers", "o-1"))!.cover_letter_url).toBe("https://docs.google.com/document/d/abc");
     expect((await call("GET", "/ingest/offers/inconnue")).status).toBe(404);
+  });
+
+  it("donne au skill maj les candidatures à suivre, et le laisse les faire avancer", async () => {
+    const store = setup();
+    const call = (method: string, path: string, body: unknown = null) => handle(req(method, path, body, { user: null, headers }), store, env);
+    const { offers } = (await call("GET", "/ingest/pipeline")).body as { offers: { id: string; category: string; steps: { id: string; result: string }[] }[] };
+    expect(offers.map((o) => o.category).sort()).toEqual(["lead", "lead", "to_apply", "waiting"]);
+    const o1 = offers.find((o) => o.id === "o-1")!;
+    expect(o1.steps.map((s) => s.result)).toEqual(["positive", "waiting", "to_plan", "to_plan"]);
+    expect((await call("POST", `/ingest/steps/${o1.steps[1].id}/result`, { result: "positive" })).status).toBe(200);
+    expect((await call("POST", "/ingest/offers/o-7/move", { step: "lead" })).status).toBe(200);
+    expect((await call("POST", "/ingest/seen", { ids: ["mail-1"], source: "maj" })).status).toBe(200);
+    expect(((await call("POST", "/ingest/unseen", { ids: ["mail-1", "mail-2"] })).body as { ids: string[] }).ids).toEqual(["mail-2"]);
+    // Sans clé : refusé.
+    expect((await handle(req("POST", "/ingest/offers/o-7/move", { step: "lead" }, { user: null }), store, env)).status).toBe(401);
   });
 
   it("la veille complète l'entreprise sans écraser ce qui est saisi", async () => {

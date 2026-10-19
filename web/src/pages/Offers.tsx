@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { Company, Offer, Process } from "@jobhunt/core";
-import { CATEGORIES, categoryOf, stateOf, type Category } from "@jobhunt/core/pipeline";
+import { CATEGORIES, categoryOf, OPEN_CATEGORIES, stateOf, type Category } from "@jobhunt/core/pipeline";
 import { api, useApi } from "../api";
 import { companyFacts, relDays, SOURCE } from "../labels";
 import { nextMove, StateChip, type Move } from "../Pipeline";
@@ -9,10 +9,7 @@ import { isFresh } from "./Home";
 import { formData, Loading, Score, useToast } from "../ui";
 
 type Tab = Category | "all";
-const TABS: { key: Tab; label: string }[] = [
-  ...CATEGORIES.map((c) => ({ key: c.key as Tab, label: c.label })),
-  { key: "all", label: "Toutes" },
-];
+const LABEL = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.label])) as Record<Category, string>;
 
 /** Décision rapide depuis la liste, pour les premières étapes. */
 const QUICK_EXIT: Partial<Record<Category, { exit: "rejected" | "not_applying"; label: string }>> = {
@@ -89,7 +86,12 @@ export function OffersPage() {
       )}
 
       <div className="tabs" role="tablist" style={{ marginTop: 16 }}>
-        {TABS.map((t) => (
+        {/* Onglets : familles en cours ; une issue (CV refusés…) s'ouvre depuis l'accueil ou « Toutes ». */}
+        {[
+          ...OPEN_CATEGORIES.map((key) => ({ key: key as Tab, label: LABEL[key] })),
+          ...(tab !== "all" && !OPEN_CATEGORIES.includes(tab) ? [{ key: tab, label: LABEL[tab] }] : []),
+          { key: "all" as Tab, label: "Toutes" },
+        ].map((t) => (
           <button key={t.key} className={t.key === tab ? "active" : ""} onClick={() => setParams({ tab: t.key })} role="tab" aria-selected={t.key === tab}>
             {t.label} <span className="muted">{offers.data ? count(t.key) : ""}</span>
           </button>
