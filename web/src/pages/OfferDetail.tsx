@@ -179,10 +179,32 @@ export function OfferDetailPage() {
  */
 function ApplyKit({ offer, company, onSaved }: { offer: Offer; company: Company | null; onSaved: () => void }) {
   const toast = useToast();
-  const ask = (what: string) =>
-    `https://claude.ai/new?q=${encodeURIComponent(
-      `/dossier-candidature ${what} ${offer.id}\n${offer.title} — ${company?.name ?? ""}${offer.url ? `\n${offer.url}` : ""}`,
-    )}`;
+  const onPhone = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  // Un lien claude:// s'ouvre dans l'application, pas dans un nouvel onglet.
+  const linkProps = onPhone ? { target: "_blank", rel: "noreferrer noopener" } : {};
+  // L'offre voyage dans le message : le skill n'a besoin d'aucun accès à l'appli.
+  const clip = (s: string | null | undefined, n: number) => (s && s.length > n ? `${s.slice(0, n)}…` : s);
+  const prompt = (what: string) =>
+    encodeURIComponent(
+      [
+        `/dossier-candidature ${what}`,
+        `Poste : ${offer.title}`,
+        `Entreprise : ${company?.name ?? "?"}`,
+        offer.location && `Lieu : ${offer.location}`,
+        offer.salary && `Salaire : ${offer.salary}`,
+        offer.url && `Annonce : ${offer.url}`,
+        company?.description && `L'entreprise : ${clip(company.description, 400)}`,
+        offer.description && `Description : ${clip(offer.description, 1800)}`,
+        offer.score_reason && `Fit :\n${offer.score_reason}`,
+        `Offre dans l'appli : ${offer.id}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+  // Sur ordinateur, le lien claude:// ouvre Claude Desktop avec la demande pré-remplie ;
+  // sur téléphone, le lien claude.ai (que l'appli Claude peut ouvrir si elle est installée).
+  const ask = (what: string) => (onPhone ? "https://claude.ai/new?q=" : "claude://claude.ai/new?q=") + prompt(what);
+  const askWeb = (what: string) => `https://claude.ai/new?q=${prompt(what)}`;
   async function save(e: React.FormEvent<HTMLFormElement>) {
     await api(`/offers/${offer.id}`, { method: "PATCH", body: formData(e) });
     toast("Liens enregistrés");
@@ -203,7 +225,7 @@ function ApplyKit({ offer, company, onSaved }: { offer: Offer; company: Company 
               Lettre de motivation ↗
             </a>
           ) : (
-            <a className="btn" href={ask("lettre")} target="_blank" rel="noreferrer noopener">
+            <a className="btn" href={ask("lettre")} {...linkProps}>
               Générer la lettre (Claude) ↗
             </a>
           )}
@@ -212,14 +234,28 @@ function ApplyKit({ offer, company, onSaved }: { offer: Offer; company: Company 
               CV adapté ↗
             </a>
           ) : (
-            <a className="btn" href={ask("cv")} target="_blank" rel="noreferrer noopener">
+            <a className="btn" href={ask("cv")} {...linkProps}>
               Préparer le CV (Claude) ↗
             </a>
           )}
         </div>
         <p className="small muted" style={{ margin: "8px 0 0" }}>
-          Claude crée les documents dans Google Drive (dossier « job / candidatures ») à partir du CV de « job / cv », et les relie à l'offre : recharge la page
-          ensuite.
+          Claude crée les documents dans Google Drive (dossier « job / candidatures ») à partir du CV de « job / cv » et te donne leurs liens :
+          colle-les ci-dessous.
+          {!onPhone && (
+            <>
+              {" "}
+              Claude Desktop ne s'ouvre pas ? Dans le navigateur :{" "}
+              <a href={askWeb("lettre")} target="_blank" rel="noreferrer noopener">
+                lettre
+              </a>{" "}
+              ·{" "}
+              <a href={askWeb("cv")} target="_blank" rel="noreferrer noopener">
+                CV
+              </a>
+              .
+            </>
+          )}
         </p>
         <details style={{ marginTop: 6 }}>
           <summary className="small" style={{ cursor: "pointer" }}>Liens des documents</summary>
