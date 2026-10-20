@@ -179,9 +179,24 @@ export function OfferDetailPage() {
  */
 function ApplyKit({ offer, company, onSaved }: { offer: Offer; company: Company | null; onSaved: () => void }) {
   const toast = useToast();
+  // L'offre voyage dans le message : le skill n'a besoin d'aucun accès à l'appli.
+  const clip = (s: string | null | undefined, n: number) => (s && s.length > n ? `${s.slice(0, n)}…` : s);
   const ask = (what: string) =>
     `https://claude.ai/new?q=${encodeURIComponent(
-      `/dossier-candidature ${what} ${offer.id}\n${offer.title} — ${company?.name ?? ""}${offer.url ? `\n${offer.url}` : ""}`,
+      [
+        `/dossier-candidature ${what}`,
+        `Poste : ${offer.title}`,
+        `Entreprise : ${company?.name ?? "?"}`,
+        offer.location && `Lieu : ${offer.location}`,
+        offer.salary && `Salaire : ${offer.salary}`,
+        offer.url && `Annonce : ${offer.url}`,
+        company?.description && `L'entreprise : ${clip(company.description, 400)}`,
+        offer.description && `Description : ${clip(offer.description, 1800)}`,
+        offer.score_reason && `Fit :\n${offer.score_reason}`,
+        `Offre dans l'appli : ${offer.id}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     )}`;
   async function save(e: React.FormEvent<HTMLFormElement>) {
     await api(`/offers/${offer.id}`, { method: "PATCH", body: formData(e) });
@@ -218,8 +233,8 @@ function ApplyKit({ offer, company, onSaved }: { offer: Offer; company: Company 
           )}
         </div>
         <p className="small muted" style={{ margin: "8px 0 0" }}>
-          Claude crée les documents dans Google Drive (dossier « job / candidatures ») à partir du CV de « job / cv », et les relie à l'offre : recharge la page
-          ensuite.
+          Claude crée les documents dans Google Drive (dossier « job / candidatures ») à partir du CV de « job / cv » et te donne leurs liens :
+          colle-les ci-dessous.
         </p>
         <details style={{ marginTop: 6 }}>
           <summary className="small" style={{ cursor: "pointer" }}>Liens des documents</summary>
