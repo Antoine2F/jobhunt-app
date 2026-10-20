@@ -42,7 +42,8 @@ Le payload de l'offre déjà extrait (dans la conversation ou fourni en argument
 | `source_detail` | non | ex. « Annonce LinkedIn », « Envoyée par X » |
 | `company_info` | non | voir le skill `fiche-entreprise` : `description`, `sector`, `size`, `headquarters`, `dev_offices`, `founders_nationality`, `capital_origin`, `funding`, `website` |
 | `score` | non | note de fit de 0 à 100, selon la grille de notation du skill `veille-offres` (rémunération d'abord : cible 100 k€ fixe + 50 k€ variable, minimum 80 k€ fixe) |
-| `score_reason` | non | résumé du fit, un point par ligne préfixé `+ ` (vert), `~ ` (orange) ou `- ` (rouge) |
+| `score_reason` | non | résumé du fit selon la grille : d'abord salaire (ou `no €`), nationalité de l'entreprise, B2B/B2C ; un point par ligne préfixé `+ `, `~ `, `- ` ou `• ` |
+| `score_details` | non | détail de la note, critère par critère (`+ Rémunération : …`), selon la même grille |
 | `notes` | non | autres éléments de l'analyse |
 
 Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends. N'invente rien : un champ inconnu est omis, jamais envoyé à `null`.
@@ -67,7 +68,8 @@ Si `company`, `title` ou `url` manque, demande-le-moi en une question et attends
                           "size": "400 salariés", "headquarters": "Paris, France", "founders_nationality": "Française" },
          "stage": "to_apply",
          "score": 78,
-         "score_reason": "~ Salaire non publié\n+ Lead PM en scale-up fintech produit\n+ Paris, télétravail 2 j/sem.\n- Process de recrutement long annoncé"
+         "score_reason": "~ no €\n+ Française (Paris)\n• B2B2C : paiement fractionné pour les commerçants\n+ Lead PM en scale-up\n+ Paris, télétravail 2 j/sem.",
+         "score_details": "~ Rémunération : non publiée dans l'annonce\n+ Poste et niveau : Lead PM, périmètre paiements\n…"
        }
      ]
    }

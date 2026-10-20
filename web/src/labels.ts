@@ -22,8 +22,8 @@ export const SOURCE: Record<string, string> = {
 };
 
 /** « Logiciel · 450 salariés · Série C » : ce qu'il faut savoir d'une entreprise en un coup d'œil. */
-export function companyFacts(c?: { sector?: string | null; size?: string | null; funding?: string | null } | null) {
-  return [c?.sector, c?.size, c?.funding].filter(Boolean).join(" · ");
+export function companyFacts(c?: { sector?: string | null; market?: string | null; size?: string | null; funding?: string | null } | null) {
+  return [c?.sector, c?.market, c?.size, c?.funding].filter(Boolean).join(" · ");
 }
 
 export const STRENGTH: Record<string, string> = { "1": "Lien faible", "2": "Lien moyen", "3": "Proche" };

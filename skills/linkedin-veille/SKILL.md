@@ -23,7 +23,7 @@ Même configuration que le skill `veille-offres` : le dossier de travail est mon
 1. **Lis mon profil** : `profil/preferences.md`, `skills.md` et `cv.md`. C'est la référence pour noter les offres.
 2. **Ouvre LinkedIn** > Emplois > « Mes alertes emploi » (ou les recherches sauvegardées), une alerte à la fois, triées par « Plus récentes ».
 3. Pour chaque offre de la liste (panneau de droite) relève : intitulé, entreprise, lieu, type de contrat et salaire s'ils sont affichés, URL (`https://www.linkedin.com/jobs/view/<id>/`), et 2 ou 3 phrases de description.
-4. **Note** chaque offre (`score` de 0 à 100 et `score_reason`) selon la **grille de notation du skill `veille-offres`** : rémunération d'abord (cible 100 k€ fixe + 50 k€ variable, minimum 80 k€ fixe), un point par ligne préfixé `+`, `~` ou `-`.
+4. **Note** chaque offre (`score` de 0 à 100, `score_reason` et `score_details`) selon la **grille de notation du skill `veille-offres`** : le résumé commence toujours par le salaire (ou `no €`), la nationalité de l'entreprise et B2B/B2C ; un point par ligne préfixé `+`, `~`, `-` ou `•`.
 4 bis. **Pour les offres d'au moins 50**, complète l'entreprise dans `company_info` en suivant le skill **`fiche-entreprise`** (une seule recherche par entreprise ; demande d'abord `GET $APP_URL/api/ingest/companies` et ne cherche que les champs encore vides). Une entreprise classée `ESN / Conseil IT` fait retomber l'offre à 20 au plus.
 5. **Envoie** le lot à l'appli (doublons ignorés automatiquement) :
 
@@ -51,6 +51,7 @@ Format de `/tmp/linkedin-offres.json` :
       "description": "…",
       "score": 82,
       "score_reason": "…",
+      "score_details": "…",
       "company_info": { "description": "…", "sector": "Software / SaaS", "size": "450 salariés",
                         "headquarters": "Paris, France", "dev_offices": "Paris", "founders_nationality": "Française",
                         "capital_origin": "VC français (Eurazeo)", "funding": "Série B, 2025" }

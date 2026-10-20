@@ -39,6 +39,7 @@ export interface OfferForReview {
   status: OfferStatus;
   score: number | null;
   score_reason: string | null;
+  score_details: string | null;
   received_at: string | null;
   cover_letter_url: string | null;
   cv_url: string | null;
@@ -64,6 +65,7 @@ export async function listOffersForReview(store: Store, status?: string | null):
       status: o.status,
       score: o.score ?? null,
       score_reason: o.score_reason ?? null,
+      score_details: o.score_details ?? null,
       received_at: o.received_at ?? null,
       cover_letter_url: o.cover_letter_url ?? null,
       cv_url: o.cv_url ?? null,
@@ -77,6 +79,7 @@ export interface OfferReview {
   remote?: string | null;
   salary?: string | null;
   score_reason?: string | null;
+  score_details?: string | null;
   /** Liens Google Drive du dossier de candidature (skill dossier-candidature). */
   cover_letter_url?: string | null;
   cv_url?: string | null;
@@ -94,6 +97,7 @@ export async function reviewOffer(store: Store, id: string, review: OfferReview)
   const patch: Record<string, unknown> = {};
   if (review.score !== undefined) patch.score = review.score;
   if (review.score_reason !== undefined) patch.score_reason = review.score_reason;
+  if (review.score_details !== undefined) patch.score_details = review.score_details;
   if (review.decision_note !== undefined) patch.decision_note = review.decision_note;
   for (const k of ["location", "remote", "salary", "cover_letter_url", "cv_url"] as const) if (review[k] !== undefined) patch[k] = review[k];
   if (review.status !== undefined && review.status !== offer.status) {
@@ -122,6 +126,7 @@ export async function listCompaniesForReview(store: Store) {
     website: c.website ?? null,
     funding: c.funding ?? null,
     headquarters: c.headquarters ?? null,
+    market: c.market ?? null,
     dev_offices: c.dev_offices ?? null,
     founders_nationality: c.founders_nationality ?? null,
     capital_origin: c.capital_origin ?? null,
@@ -170,6 +175,7 @@ export interface ImportProcess {
   /** Note de fit (0-100) et son résumé, un point par ligne préfixé « + », « ~ » ou « - ». */
   score?: number | null;
   score_reason?: string | null;
+  score_details?: string | null;
   /** Date de candidature (devient la date de réception de l'offre). */
   applied_at?: string | null;
   company_info?: CompanyInfo | null;
@@ -351,6 +357,7 @@ async function upsertOffer(
     source_detail: p.source_detail,
     score: p.score,
     score_reason: p.score_reason,
+    score_details: p.score_details,
     status,
     approach: p.stage === "to_apply" ? "direct" : undefined,
   });

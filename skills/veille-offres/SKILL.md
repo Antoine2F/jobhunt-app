@@ -78,7 +78,7 @@ Ajoute ici les cabinets dont je reçois les alertes.
      "message_id": "<identifiant du message Gmail>",
      "received_at": "<date de l'e-mail, ISO 8601>",
      "offers": [ { "title": "…", "company": "…", "location": "…", "remote": "2 j/sem.", "contract": null, "salary": null,
-                   "url": "…", "description": "…", "score": 78, "score_reason": "…",
+                   "url": "…", "description": "…", "score": 78, "score_reason": "…", "score_details": "…",
                    "company_info": { "description": "…", "size": "450 salariés", "sector": "Software / SaaS",
                                      "funding": "Série C, 2025", "headquarters": "Paris, France", "website": "https://…",
                                      "dev_offices": "Paris, Lisbonne", "founders_nationality": "Française",
@@ -103,12 +103,24 @@ Seule référence pour noter une offre (veille, veille LinkedIn, maj, nouvelle o
 
 **Repères** : 80 et plus = à regarder en premier (tout est aligné, salaire compris) ; 50 à 79 = intéressante avec réserves ; moins de 50 = peu probable.
 
-**`score_reason`** : 3 à 6 points, **un par ligne** (séparés par `\n` dans le JSON), chacun préfixé :
-- `+ ` point positif (affiché en vert) ;
-- `~ ` point moyen ou inconnu (orange) ;
-- `- ` point négatif (rouge).
+**Préfixes** des points (un point par ligne, séparés par `\n` dans le JSON) :
+- `+ ` positif (affiché en vert) ;
+- `~ ` moyen, ou inconnu alors que ça compte (orange) ;
+- `- ` négatif (rouge) ;
+- `• ` simple information, sans jugement (gris).
 
-Commence par la rémunération. Exemple : `"- 70 k€ fixe : sous le minimum de 80 k€\n+ Head of Product en scale-up SaaS\n~ Télétravail non précisé\n+ Paris 9e, 35 min de Viroflay"`.
+**`score_reason`** (résumé, affiché dans la liste des offres) : 4 à 7 points. **Toujours, dans cet ordre, les trois premiers** :
+1. **Salaire** : le fixe et le variable publiés (`+ 110 k€ + variable`, `~ 85 k€ fixe`, `- 70 k€ fixe : sous le minimum`), ou `~ no €` s'il n'est pas publié ;
+2. **Nationalité de l'entreprise** (siège, fondateurs, capitaux : `+ Française (Paris, fondateurs français)`, `• Américaine, bureau à Paris`, `~ Nationalité inconnue`) ;
+3. **B2B ou B2C** (`• B2B : éditeur SaaS pour les DAF`, `• B2C : application grand public`, `• B2B2C`) ; marqué `+` ou `-` seulement si `preferences.md` en parle.
+
+Puis 1 à 4 autres points parmi les plus importants pour la note (poste et niveau, secteur, taille, lieu et télétravail, point non négociable…).
+
+Exemple : `"- 70 k€ fixe : sous le minimum de 80 k€\n• Américaine, bureau à Paris\n• B2B : logiciel de paie\n+ Head of Product en scale-up\n~ Télétravail non précisé"`.
+
+**`score_details`** (détail, affiché sur la fiche de l'offre) : un point par critère, format `<préfixe> <Critère> : <explication en une ou deux phrases>`, avec ce qui a été lu (et où) et l'effet sur la note. Critères, dans cet ordre : `Rémunération`, `Poste et niveau`, `Entreprise` (nationalité, siège, capitaux), `Clients` (B2B/B2C), `Secteur`, `Taille et stade`, `Lieu et télétravail`, `Contrat`, `Culture` (« J'aime » / « Je n'aime pas »), `Points non négociables`, puis `Calcul` (`• Calcul : …` : comment la note est obtenue, plafond appliqué). Un critère sans information : `~ <Critère> : non précisé dans l'annonce`.
+
+La nationalité et B2B/B2C viennent de la fiche entreprise (skill `fiche-entreprise`, champs `headquarters`, `founders_nationality`, `capital_origin`, `market`) ou de l'annonce ; n'invente pas. Renseigne aussi `market` dans `company_info` quand tu le sais.
 
 ## Re-noter les offres déjà remontées
 
@@ -120,10 +132,10 @@ Quand je dis « renote les offres » (par exemple après une mise à jour de mon
    curl -sS "$APP_URL/api/ingest/offers?status=proposed" -H "x-ingest-key: $INGEST_KEY"
    ```
    → `{"offers": [{"id", "title", "company", "location", "salary", "description", "score", "score_reason", …}]}`
-3. Pour chaque offre, recalcule `score` et `score_reason` avec les mêmes règles que l'étape 5, puis envoie-les :
+3. Pour chaque offre, recalcule `score`, `score_reason` et `score_details` avec la grille de notation, puis envoie-les :
    ```bash
    curl -sS -X PATCH "$APP_URL/api/ingest/offers/<id>" -H "content-type: application/json" \
-     -H "x-ingest-key: $INGEST_KEY" -d '{"score": 15, "score_reason": "- ESN : point non négociable\n+ Poste de Head of Product"}'
+     -H "x-ingest-key: $INGEST_KEY" -d '{"score": 15, "score_reason": "~ no €\n+ Française\n• B2B : services informatiques\n- ESN : point non négociable", "score_details": "~ Rémunération : non publiée\n…"}'
    ```
    Pour une offre d'au moins 50 sans `location` précise ou `remote`, ajoute ces champs au même `PATCH` s'ils sont sur la page de l'offre ; et complète les champs vides des entreprises avec le skill `fiche-entreprise`, comme à l'étape 5 bis :
    ```bash

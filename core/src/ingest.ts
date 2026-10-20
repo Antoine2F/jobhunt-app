@@ -16,6 +16,8 @@ export interface IncomingOffer {
   remote?: string | null;
   score?: number | null;
   score_reason?: string | null;
+  /** Détail de la note, critère par critère (fiche de l'offre). */
+  score_details?: string | null;
   /** Ce que la veille a appris de l'entreprise ; ne complète que les champs encore vides. */
   company_info?: CompanyInfo | null;
 }
@@ -28,6 +30,8 @@ export interface CompanyInfo {
   website?: string | null;
   funding?: string | null;
   headquarters?: string | null;
+  /** B2B, B2C ou B2B2C. */
+  market?: string | null;
   dev_offices?: string | null;
   founders_nationality?: string | null;
   capital_origin?: string | null;
@@ -40,6 +44,7 @@ const COMPANY_INFO_FIELDS = [
   "website",
   "funding",
   "headquarters",
+  "market",
   "dev_offices",
   "founders_nationality",
   "capital_origin",
@@ -127,6 +132,7 @@ export async function applyIngest(store: Store, payload: IngestPayload): Promise
       description: o.description ?? null,
       score: o.score ?? null,
       score_reason: o.score_reason ?? null,
+      score_details: o.score_details ?? null,
       source: payload.source,
       source_detail: payload.source_detail ?? null,
       status: payload.status ?? "proposed",

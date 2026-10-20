@@ -290,7 +290,10 @@ describe("router : choix de l'approche et fiches entreprise", () => {
     const call = (method: string, path: string, body: unknown = null) => handle(req(method, path, body, { user: null, headers }), store, env);
     const got = (await call("GET", "/ingest/offers/o-1")).body as { offer: { title: string }; company: { name: string } };
     expect(got).toMatchObject({ offer: { title: "Head of Data & IA" }, company: { name: "Exemple Énergie" } });
-    await call("PATCH", "/ingest/offers/o-1", { cover_letter_url: "https://docs.google.com/document/d/abc" });
+    await call("PATCH", "/ingest/offers/o-1", { cover_letter_url: "https://docs.google.com/document/d/abc", score_details: "+ Rémunération : 110 k€" });
+    expect((await store.get("offers", "o-1"))!.score_details).toBe("+ Rémunération : 110 k€");
+    await call("PATCH", "/ingest/companies/c-1", { market: "B2C" });
+    expect((await store.get("companies", "c-1"))!.market).toBe("B2C");
     expect((await store.get("offers", "o-1"))!.cover_letter_url).toBe("https://docs.google.com/document/d/abc");
     expect((await call("GET", "/ingest/offers/inconnue")).status).toBe(404);
   });
