@@ -220,24 +220,28 @@ function ApplyKit({ offer, company, onSaved }: { offer: Offer; company: Company 
               Ouvrir l'annonce ↗
             </a>
           )}
-          {offer.cover_letter_url ? (
+          {offer.cover_letter_url && (
             <a className="btn" href={offer.cover_letter_url} target="_blank" rel="noreferrer noopener">
               Lettre de motivation ↗
             </a>
-          ) : (
-            <a className="btn" href={ask("lettre")} {...linkProps}>
-              Générer la lettre (Claude) ↗
-            </a>
           )}
-          {offer.cv_url ? (
+          {offer.cv_url && (
             <a className="btn" href={offer.cv_url} target="_blank" rel="noreferrer noopener">
               CV adapté ↗
             </a>
-          ) : (
-            <a className="btn" href={ask("cv")} {...linkProps}>
-              Préparer le CV (Claude) ↗
-            </a>
           )}
+        </div>
+        <div className="row" style={{ marginTop: 10 }}>
+          <span className="small muted">{offer.cover_letter_url || offer.cv_url ? "Refaire avec Claude :" : "Générer avec Claude :"}</span>
+          <a className="btn" href={ask("tout")} {...linkProps}>
+            CV + lettre ↗
+          </a>
+          <a className="btn" href={ask("lettre")} {...linkProps}>
+            Lettre ↗
+          </a>
+          <a className="btn" href={ask("cv")} {...linkProps}>
+            CV ↗
+          </a>
         </div>
         <p className="small muted" style={{ margin: "8px 0 0" }}>
           Claude crée les documents dans Google Drive (dossier « job / candidatures ») à partir du CV de « job / cv » et te donne leurs liens :
@@ -246,6 +250,10 @@ function ApplyKit({ offer, company, onSaved }: { offer: Offer; company: Company 
             <>
               {" "}
               Claude Desktop ne s'ouvre pas ? Dans le navigateur :{" "}
+              <a href={askWeb("tout")} target="_blank" rel="noreferrer noopener">
+                CV + lettre
+              </a>{" "}
+              ·{" "}
               <a href={askWeb("lettre")} target="_blank" rel="noreferrer noopener">
                 lettre
               </a>{" "}
