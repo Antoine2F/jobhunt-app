@@ -5,7 +5,8 @@ import { normalizeCompanyName } from "./urls.js";
 
 // Faire avancer une offre dans son parcours, et regrouper les doublons.
 
-export type Move = { step: Step } | { exit: Exit };
+/** Aller à une étape, ou s'arrêter (avec la raison, gardée dans decision_note). */
+export type Move = { step: Step } | { exit: Exit; reason?: string | null };
 
 const STATUS_BEFORE_APPLYING: Partial<Record<Step, OfferStatus>> = {
   new: "proposed",
@@ -63,7 +64,8 @@ export async function moveOffer(store: Store, offerId: string, move: Move): Prom
         throw new ValidationError(`sortie « ${(move as { exit: string }).exit} » inconnue`);
     }
   }
-  const updated = (await store.update("offers", offerId, { status }))!;
+  const reason = "exit" in move ? move.reason?.trim() : undefined;
+  const updated = (await store.update("offers", offerId, { status, ...(reason ? { decision_note: reason } : {}) }))!;
   return { offer: updated, process, state: stateOf(updated, process) };
 }
 

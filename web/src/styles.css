@@ -590,3 +590,21 @@ button.link.danger {
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Raisons d'écarter une offre */
+.exit-picker {
+  display: contents;
+}
+.exit-picker .reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-basis: 100%;
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+.exit-picker .reasons input {
+  flex: 1;
+  min-width: 140px;
+}

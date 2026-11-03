@@ -5,6 +5,7 @@ import {
   categoryOf,
   currentStep,
   DEFAULT_LEAD_STEPS,
+  EXIT_REASONS,
   resultOf,
   schemaBatches,
   setStepResult,
@@ -132,6 +133,10 @@ describe("parcours d'une offre", () => {
   it("postulé : en attente, puis retour positif (piste avec ses étapes) ou négatif (CV refusé)", async () => {
     const store = new MemoryStore();
     seedDemo(store);
+    // Écarter avec une raison : gardée dans decision_note.
+    const out = (await moveOffer(store, "o-4", { exit: "rejected", reason: "ESN" }))!;
+    expect(out.offer).toMatchObject({ status: "rejected", decision_note: "ESN" });
+    expect(categoryOf(out.state)).toBe("not_considered");
     // Nouvelle → à postuler directement ; l'étape « Intéressante » n'existe plus.
     expect((await moveOffer(store, "o-3", { step: "to_apply" }))!.state).toEqual({ step: "to_apply", exit: null });
     expect((await moveOffer(store, "o-3", { step: "interesting" as never }).catch((e: Error) => e.message))).toMatch(/inconnue/);
@@ -170,6 +175,8 @@ describe("parcours d'une offre", () => {
     expect(stateOf({ status: "validated" }, { stage: "to_apply", outcome: null })).toEqual({ step: "to_apply", exit: null });
     expect(stateOf({ status: "rejected" }, null)).toEqual({ step: "new", exit: "rejected" });
     // Ancienne étape « Intéressante » : lue comme « À postuler ».
+    expect(EXIT_REASONS.rejected).toHaveLength(5);
+    expect(EXIT_REASONS.not_applying).toContain("Offre expirée");
     expect(stateOf({ status: "interesting" }, null)).toEqual({ step: "to_apply", exit: null });
     expect(categoryOf(stateOf({ status: "not_applying" }, null))).toBe("not_considered");
     expect(resultOf({ result: null, status: "done" })).toBe("positive");

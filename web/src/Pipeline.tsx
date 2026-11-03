@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { Interview } from "@jobhunt/core";
 import {
   EXIT_LABEL,
+  EXIT_REASONS,
   exitsFor,
   resultOf,
   sortSteps,
@@ -18,10 +19,60 @@ import type { StepResult } from "@jobhunt/core/schema";
 import { api } from "./api";
 import { useToast } from "./ui";
 
-export type Move = { step: Step } | { exit: Exit };
+export type Move = { step: Step } | { exit: Exit; reason?: string | null };
 
-/** Libellé court de l'état : « Postulé · Retour négatif ». */
-export function stateLabel(s: PipelineState, step?: Pick<Interview, "kind" | "result" | "status"> | null) {
+/**
+ * Bouton de sortie (« Pas intéressante », « Je ne postule pas ») : un clic
+ * déplie les raisons courantes, un second clic enregistre ; ou une raison libre.
+ */
+export function ExitButton({ exit, label, onMove, busy }: { exit: Exit; label: string; onMove: (m: Move) => void; busy?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [other, setOther] = useState("");
+  const reasons = EXIT_REASONS[exit];
+  if (!reasons) {
+    return (
+      <button disabled={busy} onClick={() => onMove({ exit })}>
+        ✕ {label}
+      </button>
+    );
+  }
+  const choose = (reason?: string) => {
+    setOpen(false);
+    onMove({ exit, reason });
+  };
+  return (
+    <span className="exit-picker">
+      <button disabled={busy} onClick={() => setOpen(!open)} aria-expanded={open}>
+        ✕ {label}
+      </button>
+      {open && (
+        <span className="reasons" role="group" aria-label={`${label} : pourquoi ?`}>
+          {reasons.map((r) => (
+            <button key={r} type="button" disabled={busy} onClick={() => choose(r)}>
+              {r}
+            </button>
+          ))}
+          <form
+            className="row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              choose(other.trim() || undefined);
+            }}
+          >
+            <input value={other} onChange={(e) => setOther(e.target.value)} placeholder="Autre raison" aria-label="Autre raison" />
+            <button className="primary" disabled={busy}>
+              {other.trim() ? "OK" : "Sans raison"}
+            </button>
+          </form>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Libellé court de l'état : « Postulé · Retour négatif », « Pas intéressante · ESN ». */
+export function stateLabel(s: PipelineState, step?: Pick<Interview, "kind" | "result" | "status"> | null, reason?: string | null) {
+  if (s.exit === "rejected" || s.exit === "not_applying") return reason ? `${EXIT_LABEL[s.exit]} · ${reason}` : EXIT_LABEL[s.exit];
   if (s.exit === "lost" && s.step === "applied") return "CV refusé";
   if (s.exit && s.step === "lead") return s.exit === "withdrawn" ? "Piste abandonnée" : "Piste en échec";
   if (s.exit) return `${STEP_LABEL[s.step]} · ${EXIT_LABEL[s.exit]}`;
@@ -30,9 +81,17 @@ export function stateLabel(s: PipelineState, step?: Pick<Interview, "kind" | "re
   return STEP_LABEL[s.step];
 }
 
-export function StateChip({ state, step }: { state: PipelineState; step?: Pick<Interview, "kind" | "result" | "status"> | null }) {
+export function StateChip({
+  state,
+  step,
+  reason,
+}: {
+  state: PipelineState;
+  step?: Pick<Interview, "kind" | "result" | "status"> | null;
+  reason?: string | null;
+}) {
   const cls = state.exit ? "danger" : state.step === "lead" || state.step === "won" ? "ok" : "";
-  return <span className={`chip ${cls}`}>{stateLabel(state, step)}</span>;
+  return <span className={`chip ${cls}`}>{stateLabel(state, step, reason)}</span>;
 }
 
 /** Bouton principal pour passer à l'étape suivante, avant la candidature. */
@@ -49,7 +108,18 @@ const APPLIED_FEEDBACK: { key: "waiting" | "positive" | "negative"; label: strin
   { key: "negative", label: "Retour négatif", move: { exit: "lost" } },
 ];
 
-export function Pipeline({ state, onMove, busy }: { state: PipelineState; onMove: (m: Move) => void; busy?: boolean }) {
+export function Pipeline({
+  state,
+  onMove,
+  busy,
+  reason,
+}: {
+  state: PipelineState;
+  onMove: (m: Move) => void;
+  busy?: boolean;
+  /** Raison de la sortie (decision_note), affichée si l'offre est écartée. */
+  reason?: string | null;
+}) {
   const current = stepIndex(state.step);
   const next = state.exit ? null : nextMove(state.step);
   const appliedNow = state.step === "applied" ? (state.exit ? "negative" : "waiting") : null;
@@ -88,7 +158,8 @@ export function Pipeline({ state, onMove, busy }: { state: PipelineState; onMove
       {state.exit && state.step !== "applied" && (
         <p className="small" style={{ margin: "10px 0 0" }}>
           <b className="error">{state.step === "lead" ? (state.exit === "withdrawn" ? "Je me suis retiré de la piste" : "Piste en échec") : EXIT_LABEL[state.exit]}</b>
-          {state.step !== "lead" && ` à l'étape « ${STEP_LABEL[state.step]} »`}. {state.step === "lead" ? "Corriger le retour d'une étape rouvre la piste." : "Un clic sur une étape rouvre l'offre."}
+          {state.step !== "lead" && reason && ` : ${reason}`}
+          {state.step !== "lead" && ` (étape « ${STEP_LABEL[state.step]} »)`}. {state.step === "lead" ? "Corriger le retour d'une étape rouvre la piste." : "Un clic sur une étape rouvre l'offre."}
         </p>
       )}
       {!state.exit && (next || exitsFor(state.step).length > 0) && (
@@ -99,9 +170,7 @@ export function Pipeline({ state, onMove, busy }: { state: PipelineState; onMove
             </button>
           )}
           {exitsFor(state.step).map((e) => (
-            <button key={e.exit} disabled={busy} onClick={() => onMove({ exit: e.exit })}>
-              ✕ {e.label}
-            </button>
+            <ExitButton key={e.exit} exit={e.exit} label={e.label} onMove={onMove} busy={busy} />
           ))}
         </div>
       )}

@@ -4,7 +4,7 @@ import type { Company, Offer, Process } from "@jobhunt/core";
 import { CATEGORIES, categoryOf, OPEN_CATEGORIES, stateOf, type Category } from "@jobhunt/core/pipeline";
 import { api, useApi } from "../api";
 import { companyFacts, relDays, SOURCE } from "../labels";
-import { nextMove, StateChip, type Move } from "../Pipeline";
+import { ExitButton, nextMove, StateChip, type Move } from "../Pipeline";
 import { isFresh } from "./Home";
 import { Fit, formData, Loading, useToast } from "../ui";
 
@@ -138,13 +138,15 @@ export function OffersPage() {
               {company?.description && <p className="small clamp" style={{ margin: "6px 0 0" }}>{company.description}</p>}
               <Fit score={o.score} reason={o.score_reason} />
               <div className="row small" style={{ marginTop: 8 }}>
-                <StateChip state={state} />
+                <StateChip state={state} reason={o.decision_note} />
                 {o.approach === "network" && <span className="chip ok">Réseau activé</span>}
                 {o.source && <span className="muted">{SOURCE[o.source] ?? o.source}</span>}
                 <span className="muted">reçue {relDays(arrived(o))}</span>
                 {quick && next && (
                   <span className="row" style={{ marginLeft: "auto" }}>
-                    {quickExit && <button onClick={() => move(o, { exit: quickExit.exit }, quickExit.label)}>✕ {quickExit.label}</button>}
+                    {quickExit && (
+                      <ExitButton exit={quickExit.exit} label={quickExit.label} onMove={(m) => move(o, m, "reason" in m && m.reason ? `${quickExit.label} · ${m.reason}` : quickExit.label)} />
+                    )}
                     <button className="primary" onClick={() => move(o, { step: next.step }, next.label)}>
                       {next.label} →
                     </button>
