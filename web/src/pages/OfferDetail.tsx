@@ -33,8 +33,13 @@ export function OfferDetailPage() {
     setBusy(true);
     try {
       const res = await api<{ state: PipelineState }>(`/offers/${offer.id}/move`, { method: "POST", body: m });
-      toast(stateLabel(res.state));
-      reload();
+      const reason = "exit" in m ? m.reason : null;
+      toast(stateLabel(res.state, null, reason));
+      // « J'ai postulé » et « Pas intéressante / Je ne postule pas » règlent le sort de l'offre :
+      // retour à la liste, avec le même onglet et la même recherche.
+      const done = ("step" in m && m.step === "applied" && state.step === "to_apply") || ("exit" in m && (m.exit === "rejected" || m.exit === "not_applying"));
+      if (done) navigate(back);
+      else reload();
     } finally {
       setBusy(false);
     }
