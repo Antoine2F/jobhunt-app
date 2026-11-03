@@ -6,6 +6,7 @@ import {
   currentStep,
   DEFAULT_LEAD_STEPS,
   resultOf,
+  schemaBatches,
   setStepResult,
   sortSteps,
   findDuplicates,
@@ -83,8 +84,7 @@ describe("buildHome", () => {
     const home = await buildHome(store);
     expect(home.counts).toEqual({
       new: 2,
-      interesting: 1,
-      to_apply: 1,
+      to_apply: 2,
       waiting: 1,
       lead: 2,
       won: 0,
@@ -132,7 +132,9 @@ describe("parcours d'une offre", () => {
   it("postulé : en attente, puis retour positif (piste avec ses étapes) ou négatif (CV refusé)", async () => {
     const store = new MemoryStore();
     seedDemo(store);
-    expect((await moveOffer(store, "o-3", { step: "interesting" }))!.state).toEqual({ step: "interesting", exit: null });
+    // Nouvelle → à postuler directement ; l'étape « Intéressante » n'existe plus.
+    expect((await moveOffer(store, "o-3", { step: "to_apply" }))!.state).toEqual({ step: "to_apply", exit: null });
+    expect((await moveOffer(store, "o-3", { step: "interesting" as never }).catch((e: Error) => e.message))).toMatch(/inconnue/);
     const applied = (await moveOffer(store, "o-3", { step: "applied" }))!;
     expect(categoryOf(applied.state)).toBe("waiting");
     // Retour négatif : CV refusé.
@@ -167,7 +169,18 @@ describe("parcours d'une offre", () => {
     expect(stateOf({ status: "closed" }, { stage: "applied", outcome: "no_answer" })).toEqual({ step: "applied", exit: "lost" });
     expect(stateOf({ status: "validated" }, { stage: "to_apply", outcome: null })).toEqual({ step: "to_apply", exit: null });
     expect(stateOf({ status: "rejected" }, null)).toEqual({ step: "new", exit: "rejected" });
+    // Ancienne étape « Intéressante » : lue comme « À postuler ».
+    expect(stateOf({ status: "interesting" }, null)).toEqual({ step: "to_apply", exit: null });
+    expect(categoryOf(stateOf({ status: "not_applying" }, null))).toBe("not_considered");
     expect(resultOf({ result: null, status: "done" })).toBe("positive");
+  });
+});
+
+describe("schéma SQL", () => {
+  it("passe les offres « intéressantes » à « à postuler », de façon rejouable", () => {
+    const sql = schemaBatches().join("\n");
+    expect(sql).toContain("UPDATE dbo.[offers] SET status = N'validated'");
+    expect(sql).toContain("WHERE status = N'interesting'");
   });
 });
 

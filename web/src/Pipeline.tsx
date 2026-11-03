@@ -37,8 +37,7 @@ export function StateChip({ state, step }: { state: PipelineState; step?: Pick<I
 
 /** Bouton principal pour passer à l'étape suivante, avant la candidature. */
 export function nextMove(step: Step): { step: Step; label: string } | null {
-  if (step === "new") return { step: "interesting", label: "Intéressante" };
-  if (step === "interesting") return { step: "to_apply", label: "Je postule" };
+  if (step === "new") return { step: "to_apply", label: "À postuler" };
   if (step === "to_apply") return { step: "applied", label: "J'ai postulé" };
   return null;
 }

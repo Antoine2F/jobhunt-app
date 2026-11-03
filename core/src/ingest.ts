@@ -68,8 +68,8 @@ export interface IngestPayload {
   /** Identifiant du message e-mail d'origine, pour ne jamais le retraiter. */
   message_id?: string | null;
   received_at?: string | null;
-  /** "proposed" (nouvelle) par défaut ; "interesting" quand c'est toi qui ajoutes l'offre. */
-  status?: "proposed" | "interesting" | "validated";
+  /** "proposed" (nouvelle) par défaut ; "validated" (à postuler) quand c'est toi qui ajoutes l'offre. */
+  status?: "proposed" | "validated";
   offers: IncomingOffer[];
 }
 

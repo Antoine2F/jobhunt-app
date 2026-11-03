@@ -1,7 +1,7 @@
 // Le parcours d'une offre, de la première lecture à l'issue. Utilisé par l'API
 // et par le site : ce fichier ne dépend que des types du schéma.
 //
-// Nouvelle › Intéressante › À postuler › Postulé › Piste › Offre acceptée
+// Nouvelle › À postuler › Postulé › Piste › Offre acceptée
 // - Postulé : en attente de retour, retour positif (→ piste), retour négatif (CV refusé).
 // - Piste : des étapes renommables (« Step 1 (HR) »…), chacune à planifier,
 //   en attente de retour, retour positif ou retour négatif (→ piste en échec).
@@ -9,7 +9,6 @@ import type { Interview, Offer, OfferStatus, Process, ProcessStage, StepResult }
 
 export const STEPS = [
   { key: "new", label: "Nouvelle" },
-  { key: "interesting", label: "Intéressante" },
   { key: "to_apply", label: "À postuler" },
   { key: "applied", label: "Postulé" },
   { key: "lead", label: "Piste" },
@@ -42,7 +41,6 @@ export const DEFAULT_LEAD_STEPS = ["Step 1 (HR)", "Step 2 (Recr. Mgr)", "Step 3 
 /** Les familles d'offres, pour l'accueil et les onglets. */
 export const CATEGORIES = [
   { key: "new", label: "Nouvelles offres" },
-  { key: "interesting", label: "Offres intéressantes" },
   { key: "to_apply", label: "À postuler" },
   { key: "waiting", label: "En attente de retour" },
   { key: "lead", label: "Pistes" },
@@ -54,7 +52,7 @@ export const CATEGORIES = [
 export type Category = (typeof CATEGORIES)[number]["key"];
 
 /** Familles en cours (tuiles de l'accueil) ; les autres sont des issues. */
-export const OPEN_CATEGORIES: Category[] = ["new", "interesting", "to_apply", "waiting", "lead"];
+export const OPEN_CATEGORIES: Category[] = ["new", "to_apply", "waiting", "lead"];
 
 export interface PipelineState {
   step: Step;
@@ -82,8 +80,9 @@ export function stateOf(offer: Pick<Offer, "status">, process?: Pick<Process, "s
   const byStatus: Record<OfferStatus, PipelineState> = {
     proposed: { step: "new", exit: null },
     rejected: { step: "new", exit: "rejected" },
-    interesting: { step: "interesting", exit: null },
-    not_applying: { step: "interesting", exit: "not_applying" },
+    // Ancienne étape « Intéressante », supprimée : lue comme « À postuler ».
+    interesting: { step: "to_apply", exit: null },
+    not_applying: { step: "to_apply", exit: "not_applying" },
     validated: { step: "to_apply", exit: null },
     applied: { step: "applied", exit: null },
     closed: { step: "applied", exit: "lost" },
@@ -103,7 +102,6 @@ export function exitsFor(step: Step): { exit: Exit; label: string }[] {
   switch (step) {
     case "new":
       return [{ exit: "rejected", label: "Pas intéressante" }];
-    case "interesting":
     case "to_apply":
       return [{ exit: "not_applying", label: "Je ne postule pas" }];
     case "lead":

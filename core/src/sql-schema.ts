@@ -27,8 +27,20 @@ const INDEXES: Record<string, string[]> = {
   ingested_messages: ["message_id"],
 };
 
-/** Un lot SQL par table (l'équivalent des blocs séparés par GO). */
+/**
+ * Mises à jour de données, idempotentes, jouées après le schéma.
+ * - L'étape « Intéressante » a été supprimée : ces offres passent « À postuler ».
+ */
+const DATA_UPDATES = [
+  `UPDATE dbo.[offers] SET status = N'validated', updated_at = SYSDATETIMEOFFSET() WHERE status = N'interesting';\n`,
+];
+
+/** Un lot SQL par table (l'équivalent des blocs séparés par GO), puis les mises à jour de données. */
 export function schemaBatches(): string[] {
+  return [...tableBatches(), ...DATA_UPDATES];
+}
+
+function tableBatches(): string[] {
   return Object.entries(TABLES).map(([table, cols]) => {
     let out = `IF OBJECT_ID(N'dbo.[${table}]', N'U') IS NULL\nCREATE TABLE dbo.[${table}] (\n  id NVARCHAR(36) NOT NULL PRIMARY KEY,\n  created_at DATETIMEOFFSET NOT NULL,\n  updated_at DATETIMEOFFSET NOT NULL\n);\n`;
     for (const [name, col] of Object.entries(cols as Record<string, Column>)) {

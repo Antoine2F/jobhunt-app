@@ -14,7 +14,7 @@ const LABEL = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.label])) as Rec
 /** Décision rapide depuis la liste, pour les premières étapes. */
 const QUICK_EXIT: Partial<Record<Category, { exit: "rejected" | "not_applying"; label: string }>> = {
   new: { exit: "rejected", label: "Pas intéressante" },
-  interesting: { exit: "not_applying", label: "Je ne postule pas" },
+  to_apply: { exit: "not_applying", label: "Je ne postule pas" },
 };
 
 export function OffersPage() {
@@ -114,7 +114,7 @@ export function OffersPage() {
           const facts = companyFacts(company);
           const next = state.exit ? null : nextMove(state.step);
           const quickExit = QUICK_EXIT[category];
-          const quick = category === "new" || category === "interesting" || category === "to_apply";
+          const quick = category === "new" || category === "to_apply";
           return (
             <div key={o.id} className="card">
               <Link to={`/offres/${o.id}`} state={{ from: backTo }}>

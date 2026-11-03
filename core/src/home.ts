@@ -23,7 +23,7 @@ export interface OfferCard {
 
 export interface HomeView {
   today: string;
-  /** Nombre d'offres par famille (nouvelles, intéressantes, à postuler, en attente, pistes, issues). */
+  /** Nombre d'offres par famille (nouvelles, à postuler, en attente, pistes, issues). */
   counts: Record<Category, number>;
   /** Pistes : l'entreprise a manifesté son intérêt. */
   leads: OfferCard[];

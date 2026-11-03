@@ -4,7 +4,7 @@
 // Le parcours complet (étapes et sorties) est décrit dans pipeline.ts.
 export const OFFER_STATUSES = [
   "proposed", // nouvelle : remontée par la veille, pas encore regardée
-  "interesting", // intéressante, décision de postuler pas encore prise
+  "interesting", // ancienne étape « Intéressante » : migrée en « validated » (à postuler)
   "validated", // à postuler
   "rejected", // pas intéressante
   "not_applying", // intéressante, mais je ne postule pas

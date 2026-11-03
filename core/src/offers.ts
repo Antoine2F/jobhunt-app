@@ -9,7 +9,6 @@ export type Move = { step: Step } | { exit: Exit };
 
 const STATUS_BEFORE_APPLYING: Partial<Record<Step, OfferStatus>> = {
   new: "proposed",
-  interesting: "interesting",
   to_apply: "validated",
 };
 

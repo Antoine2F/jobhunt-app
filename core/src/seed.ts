@@ -41,7 +41,7 @@ export function seedDemo(store: MemoryStore) {
     },
     {
       ...meta("o-5"), company_id: "c-2", title: "Head of Product Data", location: "Paris", source: "linkedin",
-      url_key: "linkedin:1000000005", status: "interesting", score: 75, score_reason: "Produit data, bonne taille", received_at: iso(-3),
+      url_key: "linkedin:1000000005", status: "validated", score: 75, score_reason: "Produit data, bonne taille", received_at: iso(-3),
     },
     {
       ...meta("o-6"), company_id: "c-3", title: "Directeur data & IA", location: "Paris", source: "manual",
