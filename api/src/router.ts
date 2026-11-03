@@ -5,7 +5,8 @@ import {
   applyIngest,
   buildHome,
   ConflictError,
-  findDuplicates,
+  dismissDuplicate,
+  findDuplicateCandidates,
   importHistory,
   knowledgeFromEnv,
   listCompaniesForReview,
@@ -224,8 +225,13 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
       return ok({ created: res.created, duplicates: res.duplicates });
     }
 
-    if (first === "offers" && second === "duplicates" && m === "GET") {
-      return ok(await findDuplicates(store));
+    // Page Doublons : paires d'offres qui se ressemblent, comparées champ par champ.
+    if (first === "duplicates" && !second && m === "GET") return ok(await findDuplicateCandidates(store));
+    if (first === "duplicates" && second === "dismiss" && m === "POST") {
+      const { a, b } = (req.body ?? {}) as { a?: string; b?: string };
+      if (!a || !b) return err(400, "a et b attendus");
+      await dismissDuplicate(store, a, b);
+      return ok({ dismissed: true });
     }
 
     const shared = await pipelineRoute(store, m, parts, req.body);

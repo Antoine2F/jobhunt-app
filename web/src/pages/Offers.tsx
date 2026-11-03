@@ -32,7 +32,7 @@ export function OffersPage() {
   const offers = useApi<Offer[]>("/offers");
   const companies = useApi<Company[]>("/companies");
   const processes = useApi<Process[]>("/processes");
-  const duplicates = useApi<Offer[][]>("/offers/duplicates");
+  const duplicates = useApi<unknown[]>("/duplicates");
   const toast = useToast();
 
   const companyOf = useMemo(() => {
@@ -79,18 +79,10 @@ export function OffersPage() {
       <AddOffer onAdded={() => offers.reload()} />
 
       {dupCount > 0 && (
-        <div className="card banner small" style={{ marginTop: 12 }}>
-          <b>{dupCount === 1 ? "1 doublon probable" : `${dupCount} doublons probables`}</b> (même intitulé, même entreprise) :{" "}
-          {duplicates.data!.map((g, i) => (
-            <span key={i}>
-              {i > 0 && " · "}
-              <Link to={`/offres/${g[0].id}`} state={{ from: backTo }}>
-                {g[0].title} ({g.length})
-              </Link>
-            </span>
-          ))}
-          . Ouvre l'offre pour les fusionner.
-        </div>
+        <Link to="/doublons" className="card banner small" style={{ marginTop: 12, display: "block" }}>
+          <b>{dupCount === 1 ? "1 doublon possible" : `${dupCount} doublons possibles`}</b> : offres de la même entreprise aux intitulés proches. Comparer
+          et choisir →
+        </Link>
       )}
 
       <div className="tabs" role="tablist" style={{ marginTop: 16 }}>

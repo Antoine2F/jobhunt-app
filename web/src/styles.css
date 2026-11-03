@@ -608,3 +608,60 @@ button.link.danger {
   flex: 1;
   min-width: 140px;
 }
+
+/* --- Page Doublons : deux cartes côte à côte */
+.dup-why {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+.dup-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.dup-card {
+  padding: 10px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.dup-card.keep {
+  border-color: var(--ok);
+}
+.dup-f {
+  display: block;
+  margin-top: 6px;
+  padding-left: 7px;
+  border-left: 3px solid var(--border);
+}
+.dup-f.match {
+  border-left-color: var(--ok);
+}
+.dup-f.nomatch {
+  border-left-color: var(--warn);
+  color: var(--warn);
+}
+a.dup-f.nomatch {
+  color: var(--warn);
+}
+a.dup-f.match {
+  color: var(--ok);
+}
+.icon-btn {
+  min-height: 32px;
+  padding: 4px 6px;
+  color: var(--danger);
+}
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
+}
+.ok-text {
+  color: var(--ok);
+  margin-top: 4px;
+}

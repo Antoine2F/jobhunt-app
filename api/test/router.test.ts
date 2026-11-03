@@ -71,7 +71,9 @@ describe("router", () => {
     await store.update("offers", "o-4", { title: "Head of Data & IA (H/F)" });
     const detail = (await handle(req("GET", "/offers/o-4/detail"), store, env)).body as { duplicates: { id: string }[] };
     expect(detail.duplicates.map((d) => d.id)).toEqual(["o-1"]);
-    expect(((await handle(req("GET", "/offers/duplicates"), store, env)).body as unknown[]).length).toBe(1);
+    const pairs = (await handle(req("GET", "/duplicates"), store, env)).body as { a: { offer: { id: string } }; b: { offer: { id: string } }; why_not_merged: string[] }[];
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0].why_not_merged[0]).toMatch(/même intitulé : arrivée avant la règle anti-doublon/);
     const res = await handle(req("POST", "/offers/o-1/merge", { from: "o-4" }), store, env);
     expect(res.status).toBe(200);
     expect(await store.get("offers", "o-4")).toBeNull();
