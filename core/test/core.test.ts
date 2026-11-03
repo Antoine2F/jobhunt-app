@@ -213,6 +213,19 @@ describe("page Doublons", () => {
     await dismissDuplicate(store, "o-4", "o-1");
     expect(await findDuplicateCandidates(store)).toHaveLength(0);
   });
+
+  it("ignore les paires toutes les deux écartées", async () => {
+    const store = new MemoryStore();
+    seedDemo(store);
+    // Deux offres SeLoger écartées toutes les deux, et une troisième à l'intitulé très différent.
+    const c = await store.insert("companies", { name: "SeLoger" });
+    const add = (title: string, status: "rejected" | "not_applying" | "proposed") =>
+      store.insert("offers", { company_id: c.id, title, status, url_key: `t:${title}` });
+    await add("Product Manager Search", "rejected");
+    await add("Product Manager Search (H/F)", "not_applying");
+    await add("Lead Product Owner Annonces immobilières", "proposed");
+    expect((await findDuplicateCandidates(store)).filter((p) => p.a.company?.name === "SeLoger")).toHaveLength(0);
+  });
 });
 
 describe("doublons", () => {

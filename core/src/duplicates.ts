@@ -101,6 +101,8 @@ export async function findDuplicateCandidates(store: Store): Promise<DuplicateCa
       if (dismissed.has(pairKey(x.id, y.id))) continue;
       const a = side(x);
       const b = side(y);
+      // Deux offres déjà écartées (pas intéressante, je ne postule pas) : rien à décider.
+      if (categoryOf(a.state) === "not_considered" && categoryOf(b.state) === "not_considered") continue;
       if (!sameCompany(a.company, b.company)) continue;
       const similarity = titleSimilarity(x.title, y.title);
       if (similarity < MIN_SIMILARITY) continue;
