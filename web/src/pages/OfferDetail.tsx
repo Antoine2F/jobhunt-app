@@ -100,7 +100,7 @@ export function OfferDetailPage() {
         </div>
       )}
 
-      <Pipeline state={state} onMove={move} busy={busy} />
+      <Pipeline state={state} onMove={move} busy={busy} reason={offer.decision_note} />
 
       <div className="card row" style={{ marginTop: 10 }}>
         <b>Réseau</b>

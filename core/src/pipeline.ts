@@ -27,6 +27,12 @@ export const EXIT_LABEL: Record<Exit, string> = {
   withdrawn: "Je me suis retiré",
 };
 
+/** Raisons proposées en un clic quand on écarte une offre (en plus d'un champ libre). */
+export const EXIT_REASONS: Partial<Record<Exit, string[]>> = {
+  rejected: ["ESN", "Intitulé du poste", "Doublon", "Trop loin", "Salaire trop bas"],
+  not_applying: ["ESN", "Offre expirée", "Salaire trop bas", "Trop loin", "Poste moins intéressant qu'annoncé"],
+};
+
 /** États d'une étape de piste, dans l'ordre où on les traverse. */
 export const STEP_RESULT_LABEL: Record<StepResult, string> = {
   to_plan: "À planifier",

@@ -142,7 +142,7 @@ Quand je dis « renote les offres » (par exemple après une mise à jour de mon
    curl -sS -X PATCH "$APP_URL/api/ingest/companies/<company_id>" -H "content-type: application/json" \
      -H "x-ingest-key: $INGEST_KEY" -d '{"description": "…", "sector": "Software / SaaS", "dev_offices": "Paris, Lisbonne"}'
    ```
-4. **Écarter des offres** : présente-moi d'abord la liste des offres qui violent un point non négociable, groupées par motif. Seulement après mon accord, envoie pour chacune `{"status": "rejected", "decision_note": "<motif>"}` sur la même route. Tu ne peux changer le statut que d'une offre encore « à valider » (sinon réponse 409) : mes décisions ne sont jamais écrasées.
+4. **Écarter des offres** : présente-moi d'abord la liste des offres qui violent un point non négociable, groupées par motif. Seulement après mon accord, envoie pour chacune `{"status": "rejected", "decision_note": "<motif>"}` sur la même route. Pour le motif, reprends si possible une des raisons de l'appli : `ESN`, `Intitulé du poste`, `Doublon`, `Trop loin`, `Salaire trop bas` (sinon, un motif court). Tu ne peux changer le statut que d'une offre encore « à valider » (sinon réponse 409) : mes décisions ne sont jamais écrasées.
 5. Résume : offres renotées, offres écartées, les 5 meilleures avec leur nouveau score.
 
 ## Si l'appli est injoignable
