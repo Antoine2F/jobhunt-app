@@ -206,8 +206,7 @@ describe("page Doublons", () => {
     expect([p.a.offer.id, p.b.offer.id]).toEqual(["o-1", "o-4"]); // la plus ancienne à gauche
     expect(p.fields.find((f) => f.field === "company")!.same).toBe(true);
     expect(p.fields.find((f) => f.field === "title")!.same).toBe(false);
-    expect(p.why_not_merged.join(" ")).toMatch(/Intitulés différents/);
-    expect(p.why_not_merged.join(" ")).toMatch(/Liens différents/);
+    expect(p.why_not_merged).toEqual(["intitulés pas identiques", "vue sur linkedin.com et exemple-energie.test"]);
     expect(p.suggested_keep).toBe("a"); // o-1 est déjà une piste
     // Postes vraiment différents de la même entreprise : pas proposés.
     expect(titleSimilarity("Responsable plateforme data", "Head of Data & IA")).toBeLessThan(0.5);

@@ -156,24 +156,22 @@ function compare(a: DuplicateSide, b: DuplicateSide): FieldComparison[] {
   ].filter((r) => r.a !== "—" || r.b !== "—"); // rien à comparer quand les deux sont vides
 }
 
-/** Ce qui a empêché la veille de les reconnaître (elle fusionne même lien, ou même entreprise + même intitulé). */
+/**
+ * En quelques mots, ce qui a empêché la veille de les reconnaître (elle ne
+ * fusionne que le même lien, ou la même entreprise avec le même intitulé).
+ */
 function whyNotMerged(a: DuplicateSide, b: DuplicateSide, companies: Company[]): string[] {
   const why: string[] = [];
-  const sameTitle = normTitle(a.offer.title) === normTitle(b.offer.title);
+  if (sameOffer(a.offer, b.offer, companies)) {
+    why.push("même intitulé : arrivée avant la règle anti-doublon, ou ajoutée à la main / par import");
+  } else {
+    why.push("intitulés pas identiques");
+    if (a.company && b.company && a.company.id !== b.company.id) why.push(`entreprise saisie deux fois (« ${a.company.name} » / « ${b.company.name} »)`);
+  }
   const ka = offerKey(a.offer.url);
   const kb = offerKey(b.offer.url);
-  if (sameOffer(a.offer, b.offer, companies)) {
-    why.push(
-      "Même entreprise et même intitulé : la veille l'aurait écartée aujourd'hui. Elle est arrivée avant cette règle, ou par une autre voie (ajout à la main, import de l'historique, nouvelle offre), qui ne la vérifie pas.",
-    );
-  } else {
-    if (!sameTitle) why.push(`Intitulés différents (« ${a.offer.title} » / « ${b.offer.title} ») : la veille ne fusionne que des intitulés identiques, pour ne pas confondre deux postes proches de la même entreprise.`);
-    if (a.company && b.company && a.company.id !== b.company.id) {
-      why.push(`Entreprise enregistrée deux fois (« ${a.company.name} » / « ${b.company.name} ») : pas reconnue comme la même.`);
-    }
-  }
-  if (ka && kb && ka !== kb) why.push(`Liens différents (${host(a.offer.url)} / ${host(b.offer.url)}) : l'annonce a été vue à deux endroits, ou republiée.`);
-  else if (!ka || !kb) why.push("Une des deux offres n'a pas de lien d'annonce : pas de comparaison possible par le lien.");
+  if (ka && kb && ka !== kb) why.push(host(a.offer.url) === host(b.offer.url) ? `deux annonces sur ${host(a.offer.url)} (republiée ?)` : `vue sur ${host(a.offer.url)} et ${host(b.offer.url)}`);
+  else if (!ka || !kb) why.push("pas de lien sur l'une des deux");
   return why;
 }
 

@@ -609,50 +609,59 @@ button.link.danger {
   min-width: 140px;
 }
 
-/* --- Page Doublons : deux colonnes */
-.dup-grid {
+/* --- Page Doublons : deux cartes côte à côte */
+.dup-why {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+.dup-pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-.dup-head {
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
-}
-.dup-row {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px 8px;
+.dup-card {
+  padding: 10px;
   font-size: 13px;
-  padding: 4px 6px;
-  border-radius: 6px;
   overflow-wrap: anywhere;
 }
-.dup-label {
-  grid-column: 1 / -1;
-  font-size: 12px;
-  color: var(--muted);
+.dup-card.keep {
+  border-color: var(--ok);
 }
-.dup-label span {
-  font-weight: 600;
+.dup-f {
+  display: block;
+  margin-top: 6px;
+  padding-left: 7px;
+  border-left: 3px solid var(--border);
 }
-.dup-row.same {
-  color: var(--muted);
+.dup-f.match {
+  border-left-color: var(--ok);
 }
-.dup-row.same .dup-label span {
+.dup-f.nomatch {
+  border-left-color: var(--warn);
+  color: var(--warn);
+}
+a.dup-f.nomatch {
+  color: var(--warn);
+}
+a.dup-f.match {
   color: var(--ok);
 }
-.dup-row.diff {
-  background: var(--surface-2);
+.icon-btn {
+  min-height: 32px;
+  padding: 4px 6px;
+  color: var(--danger);
 }
-.dup-row.diff .dup-label span {
-  color: var(--warn);
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
 }
 .ok-text {
   color: var(--ok);
   margin-top: 4px;
-}
-.dup-grid > button {
-  white-space: normal;
 }

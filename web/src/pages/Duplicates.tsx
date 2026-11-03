@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { DuplicateCandidate, DuplicateSide } from "@jobhunt/core";
+import type { DuplicateCandidate, FieldComparison } from "@jobhunt/core";
 import { api, useApi } from "../api";
 import { Loading, Score, useToast } from "../ui";
 
-/** Paires d'offres qui se ressemblent : comparaison sur deux colonnes, et décision. */
+/** Champs montrés sur chaque carte ; l'étape et la note sont en tête. */
+const SHOWN = ["title", "location", "salary", "url", "received"];
+
+/** Doublons possibles : deux cartes côte à côte, vert = pareil, orange = différent. */
 export function DuplicatesPage() {
   const { data, error, loading, reload } = useApi<DuplicateCandidate[]>("/duplicates");
   const [busy, setBusy] = useState<string | null>(null);
@@ -21,11 +24,12 @@ export function DuplicatesPage() {
       setBusy(null);
     }
   }
-  const keep = (p: DuplicateCandidate, side: "a" | "b") => {
-    const kept = p[side];
-    const dropped = p[side === "a" ? "b" : "a"];
-    if (!confirm(`Garder « ${kept.offer.title} » et supprimer l'autre ? Son étape, ses entretiens et ses rencontres sont rattachés à celle gardée.`)) return;
-    run(p.key, () => api(`/offers/${kept.offer.id}/merge`, { method: "POST", body: { from: dropped.offer.id } }), "Doublon supprimé");
+  // Supprimer une offre = la fusionner dans l'autre (étape, entretiens et rencontres sont gardés).
+  const remove = (p: DuplicateCandidate, side: "a" | "b") => {
+    const drop = p[side].offer;
+    const keep = p[side === "a" ? "b" : "a"].offer;
+    if (!confirm(`Supprimer « ${drop.title} » ?`)) return;
+    run(p.key, () => api(`/offers/${keep.id}/merge`, { method: "POST", body: { from: drop.id } }), "Doublon supprimé");
   };
   const dismiss = (p: DuplicateCandidate) =>
     run(p.key, () => api("/duplicates/dismiss", { method: "POST", body: { a: p.a.offer.id, b: p.b.offer.id } }), "Gardées toutes les deux");
@@ -36,66 +40,68 @@ export function DuplicatesPage() {
         <Link to="/offres">← Offres</Link>
       </p>
       <h1>Doublons possibles</h1>
-      <p className="small muted">
-        Offres de la même entreprise dont les intitulés se ressemblent. La veille ne fusionne d'elle-même que le même lien, ou le même intitulé dans la même
-        entreprise : voici celles qu'elle n'a pas osé fusionner.
-      </p>
       {data.length === 0 && <p className="empty">Aucun doublon possible.</p>}
       <div className="stack">
         {data.map((p) => (
-          <div key={p.key} className="card dup">
-            <div className="small muted">Intitulés semblables à {Math.round(p.similarity * 100)} %</div>
-            <div className="dup-grid">
-              <Head side={p.a} suggested={p.suggested_keep === "a"} />
-              <Head side={p.b} suggested={p.suggested_keep === "b"} />
-              {p.fields.map((f) => (
-                <div key={f.field} className={`dup-row ${f.same ? "same" : "diff"}`}>
-                  <div className="dup-label">
-                    {f.label} <span>{f.same ? "= semblable" : "≠ différent"}</span>
+          <section key={p.key} className="dup" aria-label={`Doublon possible : ${p.a.offer.title}`}>
+            <p className="small dup-why">Pas fusionnées : {p.why_not_merged.join(" · ")}.</p>
+            <div className="dup-pair">
+              {(["a", "b"] as const).map((s) => {
+                const side = p[s];
+                const fields = p.fields.filter((f) => SHOWN.includes(f.field));
+                return (
+                  <div key={s} className={`card dup-card${p.suggested_keep === s ? " keep" : ""}`}>
+                    <div className="spread" style={{ alignItems: "center" }}>
+                      <span className="row small" style={{ gap: 4 }}>
+                        <Score value={side.offer.score} />
+                        <span className="chip">{side.step_label}</span>
+                      </span>
+                      <button
+                        className="icon-btn"
+                        title="Supprimer cette offre"
+                        aria-label={`Supprimer « ${side.offer.title} »`}
+                        disabled={busy === p.key}
+                        onClick={() => remove(p, s)}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+                        </svg>
+                      </button>
+                    </div>
+                    {fields.map((f) => (
+                      <Field key={f.field} f={f} value={s === "a" ? f.a : f.b} id={side.offer.id} />
+                    ))}
+                    {p.suggested_keep === s && <div className="small ok-text">À garder (plus avancée)</div>}
                   </div>
-                  <div>{f.a}</div>
-                  <div>{f.b}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-
-            <div className="small" style={{ marginTop: 10 }}>
-              <b>Pourquoi elles n'ont pas été fusionnées</b>
-              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-                {p.why_not_merged.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="dup-grid" style={{ marginTop: 10 }}>
-              {(["a", "b"] as const).map((s) => (
-                <button key={s} className={p.suggested_keep === s ? "primary" : ""} disabled={busy === p.key} onClick={() => keep(p, s)}>
-                  Garder celle-ci, supprimer l'autre
-                </button>
-              ))}
-            </div>
-            <button style={{ marginTop: 8, width: "100%" }} disabled={busy === p.key} onClick={() => dismiss(p)}>
+            <button className="link small" disabled={busy === p.key} onClick={() => dismiss(p)}>
               Ce ne sont pas des doublons
             </button>
-          </div>
+          </section>
         ))}
       </div>
     </>
   );
 }
 
-function Head({ side, suggested }: { side: DuplicateSide; suggested: boolean }) {
-  return (
-    <div className="dup-head">
-      <Link to={`/offres/${side.offer.id}`}>
-        <b>{side.offer.title}</b>
+/** Ce qu'on affiche quand le champ est vide d'un côté. */
+const EMPTY: Record<string, string> = { salary: "no €", url: "pas de lien", location: "lieu ?" };
+
+function Field({ f, value: raw, id }: { f: FieldComparison; value: string; id: string }) {
+  const cls = `dup-f ${f.same ? "match" : "nomatch"}`;
+  const value = raw === "—" ? (EMPTY[f.field] ?? "—") : raw;
+  if (f.field === "title") {
+    return (
+      <Link to={`/offres/${id}`} className={cls} style={{ fontWeight: 600 }}>
+        {value}
       </Link>
-      <div className="row small" style={{ marginTop: 4, gap: 6 }}>
-        <Score value={side.offer.score} />
-        <span className="chip">{side.step_label}</span>
-      </div>
-      {suggested && <div className="small ok-text">Conseillée : plus avancée ou plus complète</div>}
+    );
+  }
+  return (
+    <div className={cls} title={f.label}>
+      {f.field === "received" ? `reçue le ${value}` : value}
     </div>
   );
 }
