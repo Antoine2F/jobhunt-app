@@ -608,3 +608,51 @@ button.link.danger {
   flex: 1;
   min-width: 140px;
 }
+
+/* --- Page Doublons : deux colonnes */
+.dup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.dup-head {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.dup-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 8px;
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.dup-label {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dup-label span {
+  font-weight: 600;
+}
+.dup-row.same {
+  color: var(--muted);
+}
+.dup-row.same .dup-label span {
+  color: var(--ok);
+}
+.dup-row.diff {
+  background: var(--surface-2);
+}
+.dup-row.diff .dup-label span {
+  color: var(--warn);
+}
+.ok-text {
+  color: var(--ok);
+  margin-top: 4px;
+}
+.dup-grid > button {
+  white-space: normal;
+}

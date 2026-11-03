@@ -175,6 +175,11 @@ export const TABLES = {
     status: { type: "string", enum: INTRO_STATUSES, required: true, max: 20 },
     notes: { type: "text" },
   },
+  // Paires que j'ai déclarées « pas des doublons » (page Doublons) : plus proposées.
+  duplicate_dismissals: {
+    offer_a: { type: "string", required: true, max: 36 },
+    offer_b: { type: "string", required: true, max: 36 },
+  },
   ingested_messages: {
     message_id: { type: "string", required: true, max: 400 },
     source: { type: "string", max: 20 },

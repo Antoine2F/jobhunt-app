@@ -9,6 +9,7 @@ import { InterviewsPage } from "./pages/Interviews";
 import { NetworkPage } from "./pages/Network";
 import { PersonPage } from "./pages/Person";
 import { ProfilePage } from "./pages/Profile";
+import { DuplicatesPage } from "./pages/Duplicates";
 
 export function App() {
   // Nombre de nouvelles offres affiché dans la navigation, rafraîchi à chaque page.
@@ -48,6 +49,7 @@ export function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/offres" element={<OffersPage />} />
             <Route path="/offres/:id" element={<OfferDetailPage />} />
+            <Route path="/doublons" element={<DuplicatesPage />} />
             <Route path="/entretiens" element={<InterviewsPage />} />
             <Route path="/reseau" element={<NetworkPage />} />
             <Route path="/reseau/:id" element={<PersonPage />} />

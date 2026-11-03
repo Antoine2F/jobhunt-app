@@ -112,7 +112,7 @@ export async function setStepResult(store: Store, stepId: string, result: StepRe
 
 // --- Doublons ---------------------------------------------------------------
 
-function normTitle(s: string) {
+export function normTitle(s: string) {
   return s
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")

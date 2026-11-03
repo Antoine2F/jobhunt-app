@@ -5,6 +5,9 @@ import {
   categoryOf,
   currentStep,
   DEFAULT_LEAD_STEPS,
+  dismissDuplicate,
+  findDuplicateCandidates,
+  titleSimilarity,
   EXIT_REASONS,
   resultOf,
   schemaBatches,
@@ -188,6 +191,28 @@ describe("schéma SQL", () => {
     const sql = schemaBatches().join("\n");
     expect(sql).toContain("UPDATE dbo.[offers] SET status = N'validated'");
     expect(sql).toContain("WHERE status = N'interesting'");
+  });
+});
+
+describe("page Doublons", () => {
+  it("propose les intitulés proches de la même entreprise, explique et se laisse écarter", async () => {
+    const store = new MemoryStore();
+    seedDemo(store);
+    // Même poste republié sur le site carrière, intitulé un peu différent.
+    await store.update("offers", "o-4", { title: "Head of Data et IA - Paris", url: "https://exemple-energie.test/jobs/1" });
+    const pairs = await findDuplicateCandidates(store);
+    expect(pairs).toHaveLength(1);
+    const p = pairs[0];
+    expect([p.a.offer.id, p.b.offer.id]).toEqual(["o-1", "o-4"]); // la plus ancienne à gauche
+    expect(p.fields.find((f) => f.field === "company")!.same).toBe(true);
+    expect(p.fields.find((f) => f.field === "title")!.same).toBe(false);
+    expect(p.why_not_merged.join(" ")).toMatch(/Intitulés différents/);
+    expect(p.why_not_merged.join(" ")).toMatch(/Liens différents/);
+    expect(p.suggested_keep).toBe("a"); // o-1 est déjà une piste
+    // Postes vraiment différents de la même entreprise : pas proposés.
+    expect(titleSimilarity("Responsable plateforme data", "Head of Data & IA")).toBeLessThan(0.5);
+    await dismissDuplicate(store, "o-4", "o-1");
+    expect(await findDuplicateCandidates(store)).toHaveLength(0);
   });
 });
 
