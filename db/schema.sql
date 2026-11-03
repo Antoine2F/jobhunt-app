@@ -152,3 +152,6 @@ IF COL_LENGTH(N'dbo.[ingested_messages]', N'offers_found') IS NULL ALTER TABLE d
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'ix_ingested_messages_message_id') CREATE INDEX ix_ingested_messages_message_id ON dbo.[ingested_messages] ([message_id]);
 GO
 
+UPDATE dbo.[offers] SET status = N'validated', updated_at = SYSDATETIMEOFFSET() WHERE status = N'interesting';
+GO
+

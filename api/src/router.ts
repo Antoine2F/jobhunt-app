@@ -217,10 +217,10 @@ export async function handle(req: ApiRequest, store: Store, env = process.env): 
 
     // --- Offres : actions métier
     if (first === "offers" && second === "manual" && m === "POST") {
-      // Offre ajoutée à la main : intéressante d'office, sans notation automatique.
+      // Offre ajoutée à la main : à postuler d'office, sans notation automatique.
       const o = (req.body ?? {}) as IngestPayload["offers"][number];
       if (!o.title?.trim()) return err(400, "Intitulé obligatoire");
-      const res = await applyIngest(store, { source: "manual", status: "interesting", offers: [o] });
+      const res = await applyIngest(store, { source: "manual", status: "validated", offers: [o] });
       return ok({ created: res.created, duplicates: res.duplicates });
     }
 

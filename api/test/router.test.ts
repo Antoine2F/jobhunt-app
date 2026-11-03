@@ -106,11 +106,11 @@ describe("router", () => {
 });
 
 describe("router : ajout manuel et suivi de la veille", () => {
-  it("ajoute une offre intéressante sans appel à Claude", async () => {
+  it("ajoute une offre à postuler sans appel à Claude", async () => {
     const store = setup();
     const res = await handle(req("POST", "/offers/manual", { title: "CDO", company: "Exemple Énergie", url: "https://x.test/1" }), store, env);
     const body = res.body as { created: { status: string; company_id: string; source: string }[] };
-    expect(body.created[0]).toMatchObject({ status: "interesting", company_id: "c-1", source: "manual" });
+    expect(body.created[0]).toMatchObject({ status: "validated", company_id: "c-1", source: "manual" });
     expect((await handle(req("POST", "/offers/manual", { company: "X" }), store, env)).status).toBe(400);
   });
 
@@ -302,7 +302,7 @@ describe("router : choix de l'approche et fiches entreprise", () => {
     const store = setup();
     const call = (method: string, path: string, body: unknown = null) => handle(req(method, path, body, { user: null, headers }), store, env);
     const { offers } = (await call("GET", "/ingest/pipeline")).body as { offers: { id: string; category: string; steps: { id: string; result: string }[] }[] };
-    expect(offers.map((o) => o.category).sort()).toEqual(["lead", "lead", "to_apply", "waiting"]);
+    expect(offers.map((o) => o.category).sort()).toEqual(["lead", "lead", "to_apply", "to_apply", "waiting"]);
     const o1 = offers.find((o) => o.id === "o-1")!;
     expect(o1.steps.map((s) => s.result)).toEqual(["positive", "waiting", "to_plan", "to_plan"]);
     expect((await call("POST", `/ingest/steps/${o1.steps[1].id}/result`, { result: "positive" })).status).toBe(200);
