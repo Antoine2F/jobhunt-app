@@ -9,7 +9,7 @@ Tu tournes dans Claude sur mon abonnement : **aucune API payante n'est appelée*
 
 ## Rappel : le parcours d'une offre dans l'appli
 
-Nouvelle › Intéressante › À postuler › **Postulé** › **Piste** › Offre acceptée.
+Nouvelle › À postuler › **Postulé** › **Piste** › Offre acceptée.
 - **Postulé** : en attente retour, retour positif (devient une piste), retour négatif (« CV refusé »).
 - **Piste** : des étapes nommées `Step 1 (HR)`, `Step 2 (Recr. Mgr)`, `Step 3 (UC)`, `Step 4 (culture)` par défaut (renommables, on peut en ajouter). Chaque étape est **à planifier**, **en attente retour** (l'entretien a eu lieu), **retour positif** ou **retour négatif** (la piste passe « en échec »). L'étape en cours est la première sans retour positif.
 
