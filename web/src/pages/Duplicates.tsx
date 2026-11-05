@@ -5,7 +5,8 @@ import { api, useApi } from "../api";
 import { Loading, Score, useToast } from "../ui";
 
 /** Champs montrés sur chaque carte ; l'étape et la note sont en tête. */
-const SHOWN = ["title", "location", "salary", "url", "received"];
+const HEAD = ["title", "company"]; // pleine largeur
+const SHORT = ["location", "salary", "received", "url"]; // infos courtes sur deux colonnes, le lien en pleine largeur
 
 /** Doublons possibles : deux cartes côte à côte, vert = pareil, orange = différent. */
 export function DuplicatesPage() {
@@ -48,7 +49,7 @@ export function DuplicatesPage() {
             <div className="dup-pair">
               {(["a", "b"] as const).map((s) => {
                 const side = p[s];
-                const fields = p.fields.filter((f) => SHOWN.includes(f.field));
+                const pick = (names: string[]) => names.flatMap((n) => p.fields.filter((f) => f.field === n));
                 return (
                   <div key={s} className={`card dup-card${p.suggested_keep === s ? " keep" : ""}`}>
                     <div className="spread" style={{ alignItems: "center" }}>
@@ -68,9 +69,14 @@ export function DuplicatesPage() {
                         </svg>
                       </button>
                     </div>
-                    {fields.map((f) => (
+                    {pick(HEAD).map((f) => (
                       <Field key={f.field} f={f} value={s === "a" ? f.a : f.b} id={side.offer.id} />
                     ))}
+                    <div className="dup-grid">
+                      {pick(SHORT).map((f) => (
+                        <Field key={f.field} f={f} value={s === "a" ? f.a : f.b} id={side.offer.id} />
+                      ))}
+                    </div>
                     {p.suggested_keep === s && <div className="small ok-text">À garder (plus avancée)</div>}
                   </div>
                 );
@@ -87,10 +93,13 @@ export function DuplicatesPage() {
 }
 
 /** Ce qu'on affiche quand le champ est vide d'un côté. */
-const EMPTY: Record<string, string> = { salary: "no €", url: "pas de lien", location: "lieu ?" };
+const EMPTY: Record<string, string> = { salary: "no €", url: "pas de lien", location: "lieu ?", company: "entreprise ?" };
+
+/** 2026-10-07 → 07/10 : tient dans une demi-carte. */
+const shortDate = (iso: string) => iso.slice(0, 10).split("-").reverse().slice(0, 2).join("/");
 
 function Field({ f, value: raw, id }: { f: FieldComparison; value: string; id: string }) {
-  const cls = `dup-f ${f.same ? "match" : "nomatch"}`;
+  const cls = `dup-f dup-f-${f.field} ${f.same ? "match" : "nomatch"}`;
   const value = raw === "—" ? (EMPTY[f.field] ?? "—") : raw;
   if (f.field === "title") {
     return (
@@ -101,7 +110,7 @@ function Field({ f, value: raw, id }: { f: FieldComparison; value: string; id: s
   }
   return (
     <div className={cls} title={f.label}>
-      {f.field === "received" ? `reçue le ${value}` : value}
+      {f.field === "received" && raw !== "—" ? `reçue ${shortDate(value)}` : value}
     </div>
   );
 }

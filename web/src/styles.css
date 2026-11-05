@@ -624,6 +624,15 @@ button.link.danger {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+/* Infos courtes d'une carte (lieu, salaire, lien, date) sur deux colonnes. */
+.dup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 6px;
+}
+.dup-grid > .dup-f-url {
+  grid-column: 1 / -1;
+}
 .dup-card.keep {
   border-color: var(--ok);
 }
